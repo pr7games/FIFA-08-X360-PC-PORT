@@ -1,0 +1,43 @@
+--- a/src/graphics/vulkan/pipeline_cache.cpp
++++ b/src/graphics/vulkan/pipeline_cache.cpp
+@@ -128,7 +128,7 @@
+ void main() {
+   uint value = uint(gl_VertexIndex);
+   uint endian = xe_system_cbuffer.xe_vertex_index_endian;
+-  if (endian == 1u || endian == 2u || endian == 3u) {
++  if (endian == 1u || endian == 2u) {
+     value = xe_swap_8_in_16(value);
+   }
+   if (endian == 2u || endian == 3u) {
+@@ -162,13 +162,15 @@
+ void main() {
+   uint value = uint(gl_VertexIndex);
+   uint endian = xe_system_cbuffer.xe_vertex_index_endian;
+-  if (endian == 1u || endian == 2u || endian == 3u) {
++  if (endian == 1u || endian == 2u) {
+     value = xe_swap_8_in_16(value);
+   }
+   if (endian == 2u || endian == 3u) {
+     value = xe_swap_16_in_32(value);
+   }
+-  float tessellation_factor = float(value) + 1.0;
++  // Adaptive DMA entries contain IEEE float edge factors, not integer indices.
++  // Match the D3D12 tessellation_adaptive_vs shader (bitcast, then add one).
++  float tessellation_factor = uintBitsToFloat(value) + 1.0;
+   tessellation_factor = max(
+       tessellation_factor, xe_system_cbuffer.xe_tessellation_factor_range_min);
+   tessellation_factor = min(
+--- a/src/graphics/vulkan/command_processor.cpp
++++ b/src/graphics/vulkan/command_processor.cpp
+@@ -4855,7 +4855,10 @@
+ 
+   DeferredCommandBuffer& command_buffer = deferred_command_buffer();
+   command_buffer.CmdVkResetQueryPool(occlusion_query_pool_, host_index, 1);
+-  command_buffer.CmdVkBeginQuery(occlusion_query_pool_, host_index, 0);
++  // Guest code consumes a sample count, not merely a visibility boolean.
++  const VkQueryControlFlags query_flags = GetVulkanDevice()->properties().occlusionQueryPrecise
++      ? VK_QUERY_CONTROL_PRECISE_BIT : 0;
++  command_buffer.CmdVkBeginQuery(occlusion_query_pool_, host_index, query_flags);
+   active_occlusion_query_.sample_count_address = sample_count_address;
+   active_occlusion_query_.host_index = host_index;
+   active_occlusion_query_.valid = true;

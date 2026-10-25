@@ -1,0 +1,566 @@
+diff --git a/include/rex/ui/vulkan/fence_wait_timing.h b/include/rex/ui/vulkan/fence_wait_timing.h
+new file mode 100644
+index 0000000..97f4ba6
+--- /dev/null
++++ b/include/rex/ui/vulkan/fence_wait_timing.h
+@@ -0,0 +1,67 @@
++#pragma once
++
++#include <algorithm>
++#include <chrono>
++#include <rex/cvar.h>
++#include <rex/logging.h>
++
++namespace rex::ui::vulkan {
++
++// Observe existing CPU fence waits without inserting any GPU operations.
++class FenceWaitTiming {
++ public:
++  enum class Reason { Other, Resolve, Memexport, FrameReuse, ResourceReuse, Occlusion, OutputDescriptors, IntermediateImage, PaintPipeline, AcquireImage, Count };
++  FenceWaitTiming(const char* role, const void* tracker,
++                  Reason reason = Reason::Other, uint64_t fences = 1)
++      : role_(role), tracker_(tracker), reason_(reason), fences_(fences) {
++    // This diagnostic setting is selected before workers start, not hot-reloaded.
++    static thread_local const bool enabled = REXCVAR_QUERY(bool, vulkan_log_fence_waits);
++    enabled_ = enabled;
++    if (enabled_) start_ = Clock::now();
++  }
++  ~FenceWaitTiming() {
++    if (!enabled_) return;
++    const auto now = Clock::now();
++    const double ms = std::chrono::duration<double, std::milli>(now - start_).count();
++    struct Stats {
++      Clock::time_point start = Clock::now();
++      uint64_t calls = 0, over_8ms = 0, fences = 0;
++      double total = 0, maximum = 0;
++    };
++    static thread_local Stats all_stats[2][size_t(Reason::Count)];
++    const size_t role_index = role_[0] == 'g' ? 0 : 1;
++    Stats& stats = all_stats[role_index][size_t(reason_)];
++    ++stats.calls;
++    stats.fences += fences_;
++    stats.over_8ms += ms > 8.0;
++    stats.total += ms;
++    stats.maximum = std::max(stats.maximum, ms);
++    static thread_local Clock::time_point interval_start = Clock::now();
++    if (now - interval_start < std::chrono::seconds(5)) return;
++    constexpr const char* names[] = {"other", "resolve", "memexport", "frame_reuse",
++                                    "resource_reuse", "occlusion", "output_descriptors",
++                                    "intermediate_image", "paint_pipeline", "acquire_image"};
++    for (size_t role = 0; role < 2; ++role) {
++      for (size_t reason = 0; reason < size_t(Reason::Count); ++reason) {
++        Stats& entry = all_stats[role][reason];
++        if (!entry.calls) continue;
++        REXLOG_INFO("VulkanFenceWait: role={} reason={} calls={} fences={} "
++                    "total={:.3f}ms max={:.3f}ms over8ms={}",
++                    role == 0 ? "guest" : "presenter", names[reason], entry.calls,
++                    entry.fences, entry.total, entry.maximum, entry.over_8ms);
++        entry = Stats{};
++      }
++    }
++    interval_start = now;
++  }
++ private:
++  using Clock = std::chrono::steady_clock;
++  const char* role_;
++  const void* tracker_;
++  Reason reason_;
++  uint64_t fences_;
++  bool enabled_ = false;
++  Clock::time_point start_{};
++};
++
++}  // namespace rex::ui::vulkan
+diff --git a/include/rex/ui/vulkan/functions/device_1_0.inc b/include/rex/ui/vulkan/functions/device_1_0.inc
+index aa55a4a..ee502f0 100644
+--- a/include/rex/ui/vulkan/functions/device_1_0.inc
++++ b/include/rex/ui/vulkan/functions/device_1_0.inc
+@@ -25,6 +25,7 @@ XE_UI_VULKAN_FUNCTION(vkCmdEndQuery)
+ XE_UI_VULKAN_FUNCTION(vkCmdPipelineBarrier)
+ XE_UI_VULKAN_FUNCTION(vkCmdPushConstants)
+ XE_UI_VULKAN_FUNCTION(vkCmdResetQueryPool)
++XE_UI_VULKAN_FUNCTION(vkCmdWriteTimestamp)
+ XE_UI_VULKAN_FUNCTION(vkCmdSetBlendConstants)
+ XE_UI_VULKAN_FUNCTION(vkCmdSetDepthBias)
+ XE_UI_VULKAN_FUNCTION(vkCmdSetScissor)
+@@ -71,6 +72,7 @@ XE_UI_VULKAN_FUNCTION(vkFreeMemory)
+ XE_UI_VULKAN_FUNCTION(vkGetBufferMemoryRequirements)
+ XE_UI_VULKAN_FUNCTION(vkGetDeviceQueue)
+ XE_UI_VULKAN_FUNCTION(vkGetFenceStatus)
++XE_UI_VULKAN_FUNCTION(vkGetQueryPoolResults)
+ XE_UI_VULKAN_FUNCTION(vkGetImageMemoryRequirements)
+ XE_UI_VULKAN_FUNCTION(vkInvalidateMappedMemoryRanges)
+ XE_UI_VULKAN_FUNCTION(vkMapMemory)
+@@ -79,6 +81,7 @@ XE_UI_VULKAN_FUNCTION(vkResetDescriptorPool)
+ XE_UI_VULKAN_FUNCTION(vkResetFences)
+ XE_UI_VULKAN_FUNCTION(vkQueueBindSparse)
+ XE_UI_VULKAN_FUNCTION(vkQueueSubmit)
++XE_UI_VULKAN_FUNCTION(vkQueueWaitIdle)
+ XE_UI_VULKAN_FUNCTION(vkUnmapMemory)
+ XE_UI_VULKAN_FUNCTION(vkUpdateDescriptorSets)
+ XE_UI_VULKAN_FUNCTION(vkWaitForFences)
+diff --git a/include/rex/ui/vulkan/presenter.h b/include/rex/ui/vulkan/presenter.h
+index 56ee43b..4991869 100644
+--- a/include/rex/ui/vulkan/presenter.h
++++ b/include/rex/ui/vulkan/presenter.h
+@@ -281,7 +281,7 @@ class VulkanPresenter final : public Presenter {
+       ~Submission();
+ 
+       VkSemaphore acquire_semaphore() const { return acquire_semaphore_; }
+-      VkSemaphore present_semaphore() const { return present_semaphore_; }
++    VkFence acquire_fence() const { return acquire_fence_; }
+       VkCommandPool draw_command_pool() const { return draw_command_pool_; }
+       VkCommandBuffer draw_command_buffer() const { return draw_command_buffer_; }
+ 
+@@ -292,7 +292,7 @@ class VulkanPresenter final : public Presenter {
+ 
+       const VulkanDevice* vulkan_device_;
+       VkSemaphore acquire_semaphore_ = VK_NULL_HANDLE;
+-      VkSemaphore present_semaphore_ = VK_NULL_HANDLE;
++    VkFence acquire_fence_ = VK_NULL_HANDLE;
+       VkCommandPool draw_command_pool_ = VK_NULL_HANDLE;
+       VkCommandBuffer draw_command_buffer_ = VK_NULL_HANDLE;
+     };
+@@ -415,6 +415,8 @@ class VulkanPresenter final : public Presenter {
+     VkExtent2D swapchain_extent = {};
+     bool swapchain_is_fifo = false;
+     std::vector<VkImage> swapchain_images;
++    // Present waits are retired by reacquiring their image, not by a draw fence.
++    std::vector<VkSemaphore> swapchain_present_semaphores;
+     std::vector<SwapchainFramebuffer> swapchain_framebuffers;
+   };
+ 
+diff --git a/include/rex/ui/vulkan/submission_tracker.h b/include/rex/ui/vulkan/submission_tracker.h
+index 505b599..3eda4cb 100644
+--- a/include/rex/ui/vulkan/submission_tracker.h
++++ b/include/rex/ui/vulkan/submission_tracker.h
+@@ -17,6 +17,7 @@
+ 
+ #include <rex/assert.h>
+ #include <rex/ui/vulkan/device.h>
++#include <rex/ui/vulkan/fence_wait_timing.h>
+ 
+ namespace rex {
+ namespace ui {
+@@ -104,7 +105,8 @@ class VulkanSubmissionTracker {
+   // guarantees as needed (when downloading, as opposed to just destroying).
+   // If false is returned, it's also not guaranteed that GetCompletedSubmission
+   // will return a value >= submission_index.
+-  bool AwaitSubmissionCompletion(uint64_t submission_index);
++  bool AwaitSubmissionCompletion(uint64_t submission_index,
++                                 FenceWaitTiming::Reason reason = FenceWaitTiming::Reason::Other);
+   bool AwaitAllSubmissionsCompletion() {
+     return AwaitSubmissionCompletion(submission_current_ - 1);
+   }
+diff --git a/src/ui/vulkan/vulkan_presenter.cpp b/src/ui/vulkan/vulkan_presenter.cpp
+index 23645ef..1dc0ba8 100644
+--- a/src/ui/vulkan/vulkan_presenter.cpp
++++ b/src/ui/vulkan/vulkan_presenter.cpp
+@@ -11,6 +11,8 @@
+ 
+ #include <algorithm>
+ #include <atomic>
++#include <array>
++#include <chrono>
+ #include <cstddef>
+ #include <cstdint>
+ #include <cmath>
+@@ -58,10 +60,101 @@ REXCVAR_DEFINE_BOOL(vulkan_allow_present_mode_mailbox, true, "UI/Vulkan",
+ REXCVAR_DEFINE_BOOL(vulkan_allow_present_mode_fifo_relaxed, true, "UI/Vulkan",
+                     "Allow FIFO relaxed present mode");
+ 
++REXCVAR_DEFINE_BOOL(vulkan_log_present_timing, false, "UI/Vulkan",
++                    "Log aggregate CPU presentation timings every five seconds");
++
+ namespace rex {
+ namespace ui {
+ namespace vulkan {
+ 
++namespace {
++
++// Observe successfully queued host presents, not physical scanout timestamps.
++void LogPresentSequence(const void* presenter, uint64_t sequence) {
++  if (!REXCVAR_GET(vulkan_log_present_timing) || !sequence) return;
++  using Clock = std::chrono::steady_clock;
++  struct Stats {
++    const void* owner = nullptr;
++    Clock::time_point start = Clock::now(), last_new = {};
++    uint64_t last_sequence = 0, presents = 0, repeated = 0, skipped = 0;
++    std::vector<double> intervals;
++  };
++  static thread_local Stats stats;
++  if (stats.owner != presenter) { stats = Stats{}; stats.owner = presenter; }
++  const auto now = Clock::now();
++  ++stats.presents;
++  if (sequence == stats.last_sequence) {
++    ++stats.repeated;
++  } else {
++    if (stats.last_sequence) {
++      if (sequence > stats.last_sequence + 1) stats.skipped += sequence - stats.last_sequence - 1;
++      stats.intervals.push_back(std::chrono::duration<double, std::milli>(now - stats.last_new).count());
++    }
++    stats.last_sequence = sequence;
++    stats.last_new = now;
++  }
++  const double elapsed = std::chrono::duration<double>(now - stats.start).count();
++  if (elapsed < 5.0) return;
++  std::sort(stats.intervals.begin(), stats.intervals.end());
++  const size_t count = stats.intervals.size();
++  REXLOG_INFO("VulkanFrameCadence: seconds={:.3f} presents={} repeated={} skipped={} "
++              "new_frame_ms median={:.3f} p95={:.3f} max={:.3f}", elapsed, stats.presents,
++              stats.repeated, stats.skipped, count ? stats.intervals[count / 2] : 0.0,
++              count ? stats.intervals[(count - 1) * 95 / 100] : 0.0,
++              count ? stats.intervals.back() : 0.0);
++  stats.start = now;
++  stats.presents = stats.repeated = stats.skipped = 0;
++  stats.intervals.clear();
++}
++
++// CPU timings only: no GPU queries, waits, or presentation policy changes.
++struct PresentTiming {
++  using Clock = std::chrono::steady_clock;
++  bool enabled = REXCVAR_GET(vulkan_log_present_timing);
++  bool acquire_timeout = false;
++  Clock::time_point previous = enabled ? Clock::now() : Clock::time_point{};
++  std::array<double, 5> stages{};
++
++  void Mark(size_t stage) {
++    if (!enabled) return;
++    auto now = Clock::now();
++    stages[stage] = std::chrono::duration<double, std::milli>(now - previous).count();
++    previous = now;
++  }
++
++  ~PresentTiming() {
++    if (!enabled) return;
++    struct Stats {
++      Clock::time_point start = Clock::now();
++      uint64_t count = 0;
++      uint64_t timeouts = 0;
++      std::array<double, 5> sums{};
++      std::array<double, 5> maxima{};
++    };
++    static thread_local Stats stats;
++    ++stats.count;
++    stats.timeouts += acquire_timeout ? 1 : 0;
++    for (size_t i = 0; i < stages.size(); ++i) {
++      stats.sums[i] += stages[i];
++      stats.maxima[i] = std::max(stats.maxima[i], stages[i]);
++    }
++    if (Clock::now() - stats.start < std::chrono::seconds(5)) return;
++    REXLOG_INFO(
++        "VulkanPresentTiming: calls={} timeouts={} CPU ms avg/max "
++        "reuse={:.3f}/{:.3f} acquire={:.3f}/{:.3f} record={:.3f}/{:.3f} "
++        "submit={:.3f}/{:.3f} present={:.3f}/{:.3f}",
++        stats.count, stats.timeouts,
++        stats.sums[0] / stats.count, stats.maxima[0],
++        stats.sums[1] / stats.count, stats.maxima[1],
++        stats.sums[2] / stats.count, stats.maxima[2],
++        stats.sums[3] / stats.count, stats.maxima[3],
++        stats.sums[4] / stats.count, stats.maxima[4]);
++    stats = Stats{};
++  }
++};
++
++}  // namespace
++
+ #if defined(REX_HAS_FIDELITYFX_RUNTIME) && REX_HAS_FIDELITYFX_RUNTIME
+ namespace {
+ 
+@@ -129,12 +222,12 @@ VulkanPresenter::PaintContext::Submission::~Submission() {
+     dfn.vkDestroyCommandPool(device, draw_command_pool_, nullptr);
+   }
+ 
+-  if (present_semaphore_ != VK_NULL_HANDLE) {
+-    dfn.vkDestroySemaphore(device, present_semaphore_, nullptr);
+-  }
+   if (acquire_semaphore_ != VK_NULL_HANDLE) {
+     dfn.vkDestroySemaphore(device, acquire_semaphore_, nullptr);
+   }
++  if (acquire_fence_ != VK_NULL_HANDLE) {
++    dfn.vkDestroyFence(device, acquire_fence_, nullptr);
++  }
+ }
+ 
+ bool VulkanPresenter::PaintContext::Submission::Initialize() {
+@@ -152,11 +245,11 @@ bool VulkanPresenter::PaintContext::Submission::Initialize() {
+         "semaphore");
+     return false;
+   }
+-  if (dfn.vkCreateSemaphore(device, &semaphore_create_info, nullptr, &present_semaphore_) !=
+-      VK_SUCCESS) {
+-    REXLOG_ERROR(
+-        "VulkanPresenter: Failed to create a swapchain image presentation "
+-        "semaphore");
++
++  VkFenceCreateInfo acquire_fence_info = {};
++  acquire_fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
++  if (dfn.vkCreateFence(device, &acquire_fence_info, nullptr, &acquire_fence_) != VK_SUCCESS) {
++    REXLOG_ERROR("VulkanPresenter: Failed to create an image acquisition fence");
+     return false;
+   }
+ 
+@@ -988,6 +1081,21 @@ VulkanPresenter::ConnectOrReconnectPaintingToSurfaceFromUIThread(Surface& new_su
+     return SurfacePaintConnectResult::kFailure;
+   }
+ 
++  // Buffer present semaphores by swapchain image. Waiting on a submission
++  // fence alone does not guarantee that its presentation wait has finished.
++  assert_true(paint_context_.swapchain_present_semaphores.empty());
++  paint_context_.swapchain_present_semaphores.resize(
++      paint_context_.swapchain_images.size(), VK_NULL_HANDLE);
++  VkSemaphoreCreateInfo present_semaphore_info = {};
++  present_semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
++  for (VkSemaphore& semaphore : paint_context_.swapchain_present_semaphores) {
++    if (dfn.vkCreateSemaphore(device, &present_semaphore_info, nullptr, &semaphore) != VK_SUCCESS) {
++      REXLOG_ERROR("VulkanPresenter: Failed to create a per-image presentation semaphore");
++      paint_context_.DestroySwapchainAndVulkanSurface();
++      return SurfacePaintConnectResult::kFailure;
++    }
++  }
++
+   // Create the image views and the framebuffers.
+   assert_true(paint_context_.swapchain_framebuffers.empty());
+   paint_context_.swapchain_framebuffers.reserve(paint_context_.swapchain_images.size());
+@@ -1061,7 +1169,7 @@ bool VulkanPresenter::RefreshGuestOutputImpl(
+   if (image_instance.image && (image_instance.image->extent().width != frontbuffer_width ||
+                                image_instance.image->extent().height != frontbuffer_height)) {
+     guest_output_image_refresher_submission_tracker_.AwaitSubmissionCompletion(
+-        image_instance.last_refresher_submission);
++        image_instance.last_refresher_submission, FenceWaitTiming::Reason::ResourceReuse);
+     image_instance.image.reset();
+   }
+   if (!image_instance.image) {
+@@ -1381,19 +1489,20 @@ VkSwapchainKHR VulkanPresenter::PaintContext::CreateSwapchainForVulkanSurface(
+   // interfering with GPU command processing, and also to allow tearing so
+   // variable refresh rate may be used where it's available.
+   // Note: If the priorities here are changes, update the cvar descriptions.
+-  if (REXCVAR_GET(vulkan_allow_present_mode_immediate) &&
++  const bool presentation_vsync = (REXCVAR_QUERY(bool, vsync) || false);
++  if (!presentation_vsync && REXCVAR_GET(vulkan_allow_present_mode_immediate) &&
+       std::find(present_modes.cbegin(), present_modes.cend(), VK_PRESENT_MODE_IMMEDIATE_KHR) !=
+           present_modes.cend()) {
+     // Allowing tearing to reduce latency, and possibly variable refresh rate
+     // (though on Windows with borderless fullscreen, GDI copying is used
+     // instead of independent flip, so it's not supported there).
+     swapchain_create_info.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+-  } else if (REXCVAR_GET(vulkan_allow_present_mode_mailbox) &&
++  } else if (!presentation_vsync && REXCVAR_GET(vulkan_allow_present_mode_mailbox) &&
+              std::find(present_modes.cbegin(), present_modes.cend(), VK_PRESENT_MODE_MAILBOX_KHR) !=
+                  present_modes.cend()) {
+     // Allowing dropping frames to reduce latency, but no tearing.
+     swapchain_create_info.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+-  } else if (REXCVAR_GET(vulkan_allow_present_mode_fifo_relaxed) &&
++  } else if (!presentation_vsync && REXCVAR_GET(vulkan_allow_present_mode_fifo_relaxed) &&
+              std::find(present_modes.cbegin(), present_modes.cend(),
+                        VK_PRESENT_MODE_FIFO_RELAXED_KHR) != present_modes.cend()) {
+     // Limiting the frame rate, but lets too long frames cause tearing not to
+@@ -1428,6 +1537,13 @@ VkSwapchainKHR VulkanPresenter::PaintContext::CreateSwapchainForVulkanSurface(
+ VkSwapchainKHR VulkanPresenter::PaintContext::PrepareForSwapchainRetirement() {
+   if (swapchain != VK_NULL_HANDLE) {
+     submission_tracker.AwaitAllSubmissionsCompletion();
++    // Drain the present queue only when retiring the swapchain, never per frame.
++    // This is the conventional unextended Vulkan retirement path.
++    if (present_queue_family != UINT32_MAX) {
++      const VulkanDevice::Queue::Acquisition queue =
++          vulkan_device->AcquireQueue(present_queue_family, 0);
++      vulkan_device->functions().vkQueueWaitIdle(queue.queue());
++    }
+   }
+   const VulkanDevice::Functions& dfn = vulkan_device->functions();
+   const VkDevice device = vulkan_device->device();
+@@ -1436,6 +1552,12 @@ VkSwapchainKHR VulkanPresenter::PaintContext::PrepareForSwapchainRetirement() {
+     dfn.vkDestroyImageView(device, framebuffer.image_view, nullptr);
+   }
+   swapchain_framebuffers.clear();
++  for (VkSemaphore semaphore : swapchain_present_semaphores) {
++    if (semaphore != VK_NULL_HANDLE) {
++      dfn.vkDestroySemaphore(device, semaphore, nullptr);
++    }
++  }
++  swapchain_present_semaphores.clear();
+   swapchain_images.clear();
+   swapchain_extent.width = 0;
+   swapchain_extent.height = 0;
+@@ -1529,6 +1651,7 @@ bool VulkanPresenter::GuestOutputImage::Initialize() {
+ }
+ 
+ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_drawers) {
++  PresentTiming timing;
+   // Begin the submission in place of the one not currently potentially used on
+   // the GPU.
+   uint64_t current_paint_submission_index =
+@@ -1536,8 +1659,9 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+   uint64_t paint_submission_count = uint64_t(paint_context_.submissions.size());
+   if (current_paint_submission_index >= paint_submission_count) {
+     paint_context_.submission_tracker.AwaitSubmissionCompletion(current_paint_submission_index -
+-                                                                paint_submission_count);
++                                                                paint_submission_count, FenceWaitTiming::Reason::FrameReuse);
+   }
++  timing.Mark(0);
+   const PaintContext::Submission& paint_submission =
+       *paint_context_.submissions[current_paint_submission_index % paint_submission_count];
+ 
+@@ -1568,11 +1692,27 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+   // safe to return early from this function in case of an error.
+ 
+   VkSemaphore acquire_semaphore = paint_submission.acquire_semaphore();
++  // In FIFO mode keep the monitor readiness wait on the presentation CPU
++  // thread, rather than enqueueing an unresolved wait on the guest GPU queue.
++  // The binary semaphore is still consumed by the draw submission as required.
++  const VkFence acquire_fence = paint_context_.swapchain_is_fifo
++      ? paint_submission.acquire_fence() : VK_NULL_HANDLE;
++  if (acquire_fence != VK_NULL_HANDLE &&
++      dfn.vkResetFences(device, 1, &acquire_fence) != VK_SUCCESS) {
++    return PaintResult::kGpuLostResponsible;
++  }
+   uint32_t swapchain_image_index;
+   VkResult acquire_result =
+-      dfn.vkAcquireNextImageKHR(device, paint_context_.swapchain, UINT64_MAX, acquire_semaphore,
+-                                VK_NULL_HANDLE, &swapchain_image_index);
++      // A minimized window may stop returning swapchain images. Keep the UI
++      // thread responsive so it can process restore and surface-change events.
++      dfn.vkAcquireNextImageKHR(device, paint_context_.swapchain, 50000000, acquire_semaphore,
++                                acquire_fence, &swapchain_image_index);
++  timing.Mark(1);
++  timing.acquire_timeout = acquire_result == VK_TIMEOUT || acquire_result == VK_NOT_READY;
+   switch (acquire_result) {
++    case VK_TIMEOUT:
++    case VK_NOT_READY:
++      return PaintResult::kNotPresented;
+     case VK_SUCCESS:
+     case VK_SUBOPTIMAL_KHR:
+       break;
+@@ -1595,6 +1735,18 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+       return PaintResult::kNotPresented;
+   }
+ 
++  if (acquire_fence != VK_NULL_HANDLE) {
++    FenceWaitTiming acquire_timing("presenter", this, FenceWaitTiming::Reason::AcquireImage);
++    const VkResult ready_result =
++        dfn.vkWaitForFences(device, 1, &acquire_fence, VK_TRUE, UINT64_MAX);
++    if (ready_result != VK_SUCCESS) {
++      REXLOG_ERROR("VulkanPresenter: Image acquisition readiness failed ({})",
++                   int(ready_result));
++      return ready_result == VK_ERROR_DEVICE_LOST ? PaintResult::kGpuLostResponsible
++          : PaintResult::kNotPresentedConnectionOutdated;
++    }
++  }
++
+   // Non-zero extents needed for both the viewport (width must not be zero) and
+   // the guest output rectangle.
+   assert_not_zero(paint_context_.swapchain_extent.width);
+@@ -1688,7 +1840,7 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+           // its descriptors.
+           paint_context_.submission_tracker.AwaitSubmissionCompletion(
+               paint_context_.guest_output_image_paint_refs[guest_output_image_paint_ref_new_index]
+-                  .first);
++                  .first, FenceWaitTiming::Reason::OutputDescriptors);
+         }
+         guest_output_image_paint_ref_index = guest_output_image_paint_ref_new_index;
+         // The actual submission index will be set if the image is actually
+@@ -1736,7 +1888,8 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+             // size is needed.
+             if (intermediate_image_ptr_ref) {
+               paint_context_.submission_tracker.AwaitSubmissionCompletion(
+-                  paint_context_.guest_output_intermediate_image_last_submission);
++                  paint_context_.guest_output_intermediate_image_last_submission,
++                  FenceWaitTiming::Reason::IntermediateImage);
+               intermediate_image_ptr_ref.reset();
+               util::DestroyAndNullHandle(dfn.vkDestroyFramebuffer, device,
+                                          paint_context_.guest_output_intermediate_framebuffers[i]);
+@@ -1829,7 +1982,8 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+               swapchain_effect_pipeline.swapchain_format !=
+                   paint_context_.swapchain_render_pass_format) {
+             paint_context_.submission_tracker.AwaitSubmissionCompletion(
+-                paint_context_.guest_output_image_paint_last_submission);
++                paint_context_.guest_output_image_paint_last_submission,
++                FenceWaitTiming::Reason::PaintPipeline);
+             util::DestroyAndNullHandle(dfn.vkDestroyPipeline, device,
+                                        swapchain_effect_pipeline.swapchain_pipeline);
+           }
+@@ -1840,6 +1994,9 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+                 swapchain_effect, paint_context_.swapchain_render_pass);
+             if (swapchain_effect_pipeline.swapchain_pipeline == VK_NULL_HANDLE) {
+               guest_output_flow.effect_count = 0;
++            } else {
++              swapchain_effect_pipeline.swapchain_format =
++                  paint_context_.swapchain_render_pass_format;
+             }
+           }
+         }
+@@ -2174,7 +2331,9 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+     paint_context_.ui_setup_command_buffer_current_index = SIZE_MAX;
+   }
+   command_buffers[command_buffer_count++] = draw_command_buffer;
+-  VkSemaphore present_semaphore = paint_submission.present_semaphore();
++  VkSemaphore present_semaphore =
++      paint_context_.swapchain_present_semaphores[swapchain_image_index];
++  timing.Mark(2);
+   VkSubmitInfo submit_info;
+   submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+   submit_info.pNext = nullptr;
+@@ -2227,6 +2386,7 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+     }
+   }
+ 
++  timing.Mark(3);
+   VkPresentInfoKHR present_info;
+   present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+   present_info.pNext = nullptr;
+@@ -2242,6 +2402,10 @@ Presenter::PaintResult VulkanPresenter::PaintAndPresentImpl(bool execute_ui_draw
+         vulkan_device_->AcquireQueue(paint_context_.present_queue_family, 0);
+     present_result = dfn.vkQueuePresentKHR(queue_acquisition.queue(), &present_info);
+   }
++  timing.Mark(4);
++  if (present_result == VK_SUCCESS || present_result == VK_SUBOPTIMAL_KHR) {
++    LogPresentSequence(this, 0);
++  }
+   switch (present_result) {
+     case VK_SUCCESS:
+       return PaintResult::kPresented;
+diff --git a/src/ui/vulkan/vulkan_submission_tracker.cpp b/src/ui/vulkan/vulkan_submission_tracker.cpp
+index 07a07b2..610c9b0 100644
+--- a/src/ui/vulkan/vulkan_submission_tracker.cpp
++++ b/src/ui/vulkan/vulkan_submission_tracker.cpp
+@@ -10,11 +10,15 @@
+  */
+ 
+ #include <cstdint>
++#include <rex/ui/vulkan/fence_wait_timing.h>
+ 
+ #include <rex/assert.h>
+ #include <rex/ui/vulkan/submission_tracker.h>
+ #include <rex/ui/vulkan/util.h>
+ 
++REXCVAR_DEFINE_BOOL(vulkan_log_fence_waits, false, "UI/Vulkan",
++                    "Log aggregate existing CPU fence waits without GPU queries");
++
+ namespace rex {
+ namespace ui {
+ namespace vulkan {
+@@ -88,7 +92,8 @@ uint64_t VulkanSubmissionTracker::UpdateAndGetCompletedSubmission() {
+   return submission_completed_on_gpu_;
+ }
+ 
+-bool VulkanSubmissionTracker::AwaitSubmissionCompletion(uint64_t submission_index) {
++bool VulkanSubmissionTracker::AwaitSubmissionCompletion(uint64_t submission_index,
++                                                       FenceWaitTiming::Reason reason) {
+   // The tracker itself can't give a submission index for a submission that
+   // hasn't even started being recorded yet, the client has provided a
+   // completely invalid value or has done overly optimistic math if such an
+@@ -119,8 +124,12 @@ bool VulkanSubmissionTracker::AwaitSubmissionCompletion(uint64_t submission_inde
+       assert_true(pending_pair.first > submission_completed_on_gpu_);
+       if (pending_pair.first <= submission_index) {
+         // Wait if requested.
+-        if (dfn.vkWaitForFences(device, 1, &pending_pair.second, VK_TRUE, UINT64_MAX) ==
+-            VK_SUCCESS) {
++        VkResult wait_result;
++        {
++          FenceWaitTiming timing("presenter", this, reason);
++          wait_result = dfn.vkWaitForFences(device, 1, &pending_pair.second, VK_TRUE, UINT64_MAX);
++        }
++        if (wait_result == VK_SUCCESS) {
+           break;
+         }
+       }

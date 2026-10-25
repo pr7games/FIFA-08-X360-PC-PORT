@@ -1,0 +1,17 @@
+--- a/src/graphics/vulkan/command_processor.cpp
++++ b/src/graphics/vulkan/command_processor.cpp
+@@ -6075,8 +6075,13 @@
+     guest_index_endian =
+         guest_index_endian == xenos::Endian::k8in32 ? xenos::Endian::k8in16 : xenos::Endian::kNone;
+   }
++  // Tessellation consumes host indices (including auto/converted draws),
++  // not the raw guest DMA byte order. Matches Xenia Edge 2f5e57d.
++  const bool tessellation_host_indices = Shader::IsHostVertexShaderTypeDomain(
++      primitive_processing_result.host_vertex_shader_type);
+   xenos::Endian index_endian =
+-      (flags & SpirvShaderTranslator::kSysFlag_ComputeOrPrimitiveVertexIndexLoad)
++      !tessellation_host_indices &&
++              (flags & SpirvShaderTranslator::kSysFlag_ComputeOrPrimitiveVertexIndexLoad)
+           ? guest_index_endian
+           : primitive_processing_result.host_shader_index_endian;
+   dirty |= system_constants_.vertex_index_endian != index_endian;

@@ -1,0 +1,16 @@
+--- a/src/graphics/vulkan/pipeline_cache.cpp
++++ b/src/graphics/vulkan/pipeline_cache.cpp
+@@ -96,7 +96,12 @@
+ 
+ std::string GetTessellationSystemConstantsBlockGlsl() {
+   std::string source;
+-  source += "layout(set = 0, binding = 0, std140) uniform XeSystemConstants {\n";
++  // Set 0 contains shared memory / EDRAM resources. Match the constants set
++  // used by translated shaders and VulkanCommandProcessor::GetPipelineLayout.
++  source += fmt::format(
++      "layout(set = {}, binding = {}, std140) uniform XeSystemConstants {{\n",
++      uint32_t(SpirvShaderTranslator::kDescriptorSetConstants),
++      uint32_t(SpirvShaderTranslator::kConstantBufferSystem));
+   source += fmt::format("  layout(offset = {}) uint xe_vertex_index_endian;\n",
+                         offsetof(SpirvShaderTranslator::SystemConstants, vertex_index_endian));
+   source += fmt::format("  layout(offset = {}) int xe_vertex_base_index;\n",

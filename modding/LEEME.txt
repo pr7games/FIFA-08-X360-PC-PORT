@@ -1,0 +1,142 @@
+FIFA08 editor by pr7
+===================
+
+ABRIR
+Ejecuta "FIFA08 editor by pr7.exe". No requiere Node, Python ni instalar librerias.
+Usa .NET Framework y Windows Forms de Windows. El ejecutable va en la raiz del port.
+Detecta GameData o analysis/private/game; tambien puedes usar Abrir carpeta.
+No incluye ni necesita descargar archivos del juego.
+
+TEMA CLARO / OSCURO E IDIOMA
+El editor inicia con el tema oscuro. El boton de sol/luna cambia
+tablas, listas, selectores, botones y fondos sin perder las ediciones pendientes.
+El boton ES | EN alterna el idioma del editor en tiempo real. Los nombres de
+jugadores/equipos y el contenido del juego se mantienen tal como fueron editados.
+Ambas elecciones se recuerdan por usuario para la siguiente apertura.
+
+SHORTS, MEDIAS Y PIEL
+Cada kit contiene varias superficies. Usa el selector superior para elegir
+camiseta, shorts y medias, escudo y superficies auxiliares. Shorts y medias
+comparten un atlas: exporta/importa esa textura completa conservando dimensiones.
+La pestana Caras y piel permite filtrar caras individuales, las diez pieles
+corporales, ojos/cabeza y mapas corporales compartidos. Las pieles de cuerpo y
+los mapas comunes pueden afectar a varios jugadores al reemplazarlos.
+Los nombres de archivo e IDs se conservan. Los arrays auxiliares no compatibles
+no se ofrecen como superficies 2D editables.
+
+ENGLISH QUICK START
+Use ES | EN to switch the editor language instantly, and the sun/moon button
+to switch themes. Both preferences are remembered without changing game data.
+Kits contain separate Jersey and Shorts & socks surfaces; the latter is a shared
+atlas inside the same kit file. Faces & skin includes ten body skin resources,
+eyes, head textures and shared body maps. Shared resources affect multiple players.
+Restore this resource / Restore player prepares an individual original; click
+Save changes to apply it while preserving other edits. Full originals are verified
+against backups before use. Never distribute game assets or backup archives.
+
+RESTAURAR UN SOLO ELEMENTO
+Jugadores: selecciona uno y pulsa Restaurar jugador para recuperar sus nombres,
+atributos y vestimenta originales. Los demas jugadores conservan sus ediciones.
+Caras, camisetas y botines: selecciona el archivo y pulsa Restaurar este recurso.
+Recupera todas las superficies del recurso seleccionado, conservando los demas.
+La restauracion individual se prepara en memoria: pulsa Guardar cambios para
+aplicarla junto a tus otras ediciones. Si solo deshaces una importacion pendiente
+sobre un recurso que ya era original, no necesita escribir ese recurso al disco.
+Se usa el original verificado del juego o su respaldo original verificado;
+si falta, el editor avisa y conserva los cambios actuales.
+Restaurar originales de la barra superior sigue recuperando el conjunto completo.
+
+JUGADORES
+1. Filtra por liga/equipo y busca nombre o ID.
+2. A la izquierda tienes Datos y atributos. A la derecha, Apariencia y vestimenta:
+   botines con preview y variante, mangas, camiseta, guantes y cuatro accesorios.
+3. Preparar jugador recoge los cambios sin escribir al juego. Cambiar de jugador
+   tambien prepara sus cambios; los valores invalidos impiden cambiar de seleccion.
+4. Pulsa Guardar cambios. Tambien recoge lo editado en el jugador visible.
+
+Los rangos se comprueban con el XML original. Solo se ofrecen modelos de botines
+con textura y variantes existentes; al cambiar de modelo se ajusta su variante.
+Los colores de accesorios se limitan a combinaciones observadas en la DB cargada.
+Los nombres descriptivos de vestimenta deben contrastarse visualmente en FIFA08.
+No se exponen IDs internos de geometria ni opciones ausentes en esta base.
+No hay selector de idioma: atributos y asignaciones se guardan en el unico
+fifa_ng_db.db deportivo, comun a los idiomas. No se alteran las bases de textos
+de interfaz en data/loc. Los nombres de jugador tambien se editan en el DB comun.
+
+CARAS / CAMISETAS / BOTINES
+1. Busca nombre, equipo, ID o archivo. Selecciona el recurso.
+2. El selector superior permite elegir cada textura interna. El pie muestra
+   su numero, dimensiones, formato y cantidad de mipmaps.
+3. Exporta PNG para editar una imagen, o DDS para trabajar con bloques/mipmaps.
+4. Importa la imagen editada. Se mantiene en memoria hasta Guardar cambios.
+
+PNG: debe conservar dimensiones. Se recomprime al formato original y genera
+todos los mipmaps. La compresion BC tiene perdida; para controlar la calidad
+desde un editor externo, utiliza DDS con la cadena completa de mipmaps.
+DDS: conserva dimensiones, formato y todos los mipmaps exportados. No admite
+cabecera DX10, cubemaps, arrays ni cambios de geometria.
+
+Formatos implementados: BC1, BC2, BC3, BC5, BGRA8 y L8 en superficies 2D.
+La vista BC5 reconstruye el canal azul del normal map solo para previsualizar.
+La exportacion DDS conserva los datos comprimidos reales de todos los mips.
+No convierte mapas normales en texturas de color: selecciona la superficie
+correcta mirando el preview antes de reemplazarla.
+
+EJEMPLOS DE BUSQUEDA
+Cristiano Ronaldo: jugador 20801. Paul Scholes: 246. Messi: 158023.
+Camisetas Manchester United: buscar Manchester United o kit_11_.
+Botines: buscar shoe_108_ u otro ID presente en el catalogo.
+La apariencia usa tanto el ID como sus variantes/color; elige el recurso adecuado.
+
+GUARDAR Y RESTAURAR
+Cierra FIFA 08 antes de guardar. El editor modifica los BIG y sus indices BH,
+manteniendo los otros recursos. No modifica el ejecutable, runtime o launcher.
+Si un recurso editado crece, se guarda al final del BIG con alineacion de 64 bytes.
+Se actualizan su posicion y tamano en BIG y BH, conservando los hashes del indice
+y los bytes y posiciones de los recursos sin editar. No exige que la nueva
+compresion quepa en el espacio original. Si comprimir no ayuda, se guarda sin
+compresion con el indicador correspondiente del BH.
+Conserva un solo original de cada BIG/BH modificado en modding/backups/originals/.
+Los guardados siguientes reemplazan la copia activa del juego; no crean
+carpetas por fecha ni conservan versiones editadas anteriores permanentemente.
+Necesitas espacio temporal durante el guardado; las copias temporales se eliminan
+al finalizar. Si se interrumpe, recupera la copia activa anterior al volver a abrir.
+El guardado puede tardar por el tamano de los archivos; no cierres el editor.
+Antes de reemplazar los archivos se verifican los respaldos y los nuevos recursos.
+Si falla una escritura, intenta restaurar automaticamente los archivos ya escritos.
+
+Restaurar originales recupera el original verificado de cada BIG/BH modificado.
+Comprueba los hashes originales de los 14 archivos, incluyendo datos y texturas.
+Nunca utiliza una version editada como original. Si falta un original, no escribe nada.
+Antes de guardar exige originales o un respaldo original verificable de cada
+archivo afectado. Los respaldos originales existentes siguen siendo compatibles.
+No borres backups si quieres poder restaurar. No compartas respaldos del juego.
+
+BACKUP POLICY (ENGLISH)
+Only one pristine original per modified BIG/BH is retained in backups/originals.
+Later saves replace the working game files. Temporary transaction files are
+removed after saving; an interrupted save is recovered when the editor reopens.
+Individual resource/player restore keeps other edits. Keep the originals folder.
+
+PLANTILLAS GUARDADAS
+Estos son cambios a los valores base. Una plantilla o carrera guardada puede
+tener prioridad sobre ellos. Para comprobarlos, utiliza una plantilla nueva o
+restablecida desde el juego. El editor no borra partidas ni plantillas.
+La prioridad exacta y el resultado visual final se deben validar dentro del juego.
+
+ESTADO DE ESTA ENTREGA
+Compilado y probado sobre copias: DB/CRC, nombres Unicode, atributos/vestimenta,
+PNG/DDS con mipmaps, BIG/BH, respaldo y restauracion byte a byte.
+Lectura verificada sobre 7416 recursos del catalogo (14204 superficies).
+No se ha aplicado ningun parche al juego real ni lanzado el juego automaticamente.
+Regresion corregida: Scholes con botines 116 ya no conserva el color inexistente 1;
+se utiliza la variante 0 disponible. La confirmacion final requiere prueba en juego.
+
+DESARROLLO
+Codigo en src/. Compilar con build.cmd (compilador .NET Framework de Windows).
+Pruebas tecnicas: tests/output/resultados.txt; auditoria: tests/texture-audit.txt.
+Evidencia REA y limitaciones del analisis en research/.
+REA no lee directamente BIG/RX2: las estructuras se validaron con archivos,
+metadatos y lectores propios. REA se usa bajo peticion y no es necesario para
+ejecutar el editor. El MCP global no ha sido habilitado.
+Ver THIRD_PARTY_NOTICES.txt para las atribuciones del layout de texturas Xenos.

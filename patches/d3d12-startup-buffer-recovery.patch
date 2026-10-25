@@ -1,0 +1,147 @@
+--- a/src/ui/d3d12/d3d12_presenter.cpp
++++ b/src/ui/d3d12/d3d12_presenter.cpp
+@@ -11,6 +11,7 @@
+ 
+ #include <algorithm>
+ #include <climits>
++#include <chrono>
+ #include <cmath>
+ #include <memory>
+ #include <utility>
+@@ -35,6 +36,10 @@
+ 
+ REXCVAR_DEFINE_BOOL(d3d12_paced_present_tearing, true, "UI/D3D12",
+     "Allow paced presentation without throttling the shared graphics queue");
++REXCVAR_DEFINE_BOOL(d3d12_startup_buffer_recovery, false, "UI/D3D12",
++    "Refresh presentation buffers once after a sustained startup cadence stall");
++REXCVAR_DEFINE_INT32(d3d12_startup_recovery_target_fps, 60, "UI/D3D12",
++    "Host FPS cap used to detect startup presentation stalls").range(30, 120);
+ 
+ namespace rex::ui::d3d12 {
+ 
+@@ -351,12 +356,14 @@
+   // surface of the current swap chain or when the old swap chain has already
+   // been destroyed, if the surface is the same, try resizing.
+   if (paint_context_.swap_chain) {
+-    if (was_paintable && paint_context_.swap_chain_width == new_swap_chain_width &&
++    if (!startup_buffer_refresh_pending_ && was_paintable && paint_context_.swap_chain_width == new_swap_chain_width &&
+         paint_context_.swap_chain_height == new_swap_chain_height) {
+       is_vsync_implicit_out = false;
+       return SurfacePaintConnectResult::kSuccessUnchanged;
+     }
+     paint_context_.AwaitSwapChainUsageCompletion();
++    const bool startup_refresh = startup_buffer_refresh_pending_;
++    startup_buffer_refresh_pending_ = false;
+     // Using the current swap_chain_allows_tearing_ value that's consistent with
+     // the creation of the swap chain because ResizeBuffers can't toggle the
+     // tearing flag.
+@@ -378,6 +385,10 @@
+       if (swap_chain_resized) {
+         paint_context_.swap_chain_width = new_swap_chain_width;
+         paint_context_.swap_chain_height = new_swap_chain_height;
++        if (startup_refresh) {
++          REXLOG_INFO("D3D12Presenter: startup buffer recovery completed at {}x{} (window unchanged)",
++                      new_swap_chain_width, new_swap_chain_height);
++        }
+       }
+     }
+     if (!swap_chain_resized) {
+@@ -534,6 +545,7 @@
+   }
+   D3D12GuestOutputRefreshContext context(is_8bpc_out_ref, guest_output_resource_ref.second.Get());
+   bool refresher_succeeded = refresher(context);
++  if (refresher_succeeded) guest_refresh_count_.fetch_add(1, std::memory_order_relaxed);
+   // Even if the refresher has returned false, it still might have submitted
+   // some commands referencing the resource. It's better to put an excessive
+   // signal and wait slightly longer, for nothing important, while shutting down
+@@ -1167,6 +1179,19 @@
+   // internally before the failure according to Jesse Natalie from the DirectX
+   // Discord server.
+   paint_context_.present_submission_tracker.NextSubmission();
++  if (present_result == S_OK && REXCVAR_GET(d3d12_startup_buffer_recovery)) {
++    const double seconds = std::chrono::duration<double>(
++        std::chrono::steady_clock::now().time_since_epoch()).count();
++    if (startup_recovery_.Observe(seconds, guest_refresh_count_.load(std::memory_order_relaxed),
++                                  REXCVAR_GET(d3d12_startup_recovery_target_fps))) {
++      startup_buffer_refresh_pending_ = true;
++      REXLOG_INFO("D3D12Presenter: sustained startup cadence {:.1f} FPS; scheduling one buffer recovery",
++                  startup_recovery_.last_fps());
++      // Use the existing UI-thread reconnect path, outside painting and after
++      // all swap-chain GPU usage has completed. Do not resize the HWND.
++      return PaintResult::kPresentedSuboptimal;
++    }
++  }
+   switch (present_result) {
+     case DXGI_ERROR_DEVICE_REMOVED:
+       return PaintResult::kGpuLostExternally;
+--- a/include/rex/ui/d3d12/d3d12_presenter.h
++++ b/include/rex/ui/d3d12/d3d12_presenter.h
+@@ -12,12 +12,14 @@
+ #pragma once
+ 
+ #include <array>
++#include <atomic>
+ #include <memory>
+ #include <utility>
+ 
+ #include <rex/math.h>
+ #include <rex/ui/d3d12/d3d12_provider.h>
+ #include <rex/ui/d3d12/d3d12_submission_tracker.h>
++#include <rex/ui/d3d12/startup_recovery.h>
+ #include <rex/ui/presenter.h>
+ #include <rex/ui/surface.h>
+ 
+@@ -311,6 +313,9 @@
+   // DisconnectPaintingFromSurfaceFromUIThreadImpl) by the thread doing it, as
+   // well as by presenter initialization and shutdown.
+   PaintContext paint_context_;
++  std::atomic<uint64_t> guest_refresh_count_{0};
++  StartupRecovery startup_recovery_;
++  bool startup_buffer_refresh_pending_ = false;
+ 
+ #if defined(REX_HAS_FIDELITYFX_RUNTIME) && REX_HAS_FIDELITYFX_RUNTIME
+   void* temporal_upscaler_context_ = nullptr;
+--- /dev/null
++++ b/include/rex/ui/d3d12/startup_recovery.h
+@@ -0,0 +1,41 @@
++#pragma once
++#include <cstdint>
++
++namespace rex::ui::d3d12 {
++
++// Bounded recovery for startup presentation stalls. Count guest images, not
++// repeated UI paints, and never repeatedly reset a genuinely overloaded GPU.
++class StartupRecovery {
++ public:
++  bool Observe(double seconds, uint64_t frames, int target_fps) {
++    if (used_ || target_fps < 60) return false;
++    if (!initialized_) {
++      initialized_ = true;
++      start_ = sample_time_ = seconds;
++      sample_frames_ = frames;
++      return false;
++    }
++    const double elapsed = seconds - sample_time_;
++    if (elapsed < 1.0) return false;
++    last_fps_ = double(frames - sample_frames_) / elapsed;
++    sample_time_ = seconds;
++    sample_frames_ = frames;
++    if (seconds - start_ > 120.0) { used_ = true; return false; }
++    if (seconds - start_ < 5.0 || elapsed > 2.0 ||
++        last_fps_ < 5.0 || last_fps_ >= target_fps * 0.65) {
++      slow_seconds_ = 0;
++      return false;
++    }
++    slow_seconds_ += elapsed;
++    if (slow_seconds_ < 3.0) return false;
++    used_ = true;
++    return true;
++  }
++  double last_fps() const { return last_fps_; }
++
++ private:
++  bool initialized_ = false, used_ = false;
++  double start_ = 0, sample_time_ = 0, slow_seconds_ = 0, last_fps_ = 0;
++  uint64_t sample_frames_ = 0;
++};
++}

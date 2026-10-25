@@ -1,0 +1,287 @@
+{
+  "sdk": "rexglue-sdk",
+  "version": "0.10.0",
+  "upstream_archive_sha256": "0b02348e47516791b1622ae71577f58b0789fdcb8eef622dc759493628d747d6",
+  "files": [
+    {
+      "path": "CMakeLists.txt",
+      "sha256": "b040879d85d630cb8d3f4ef700f146cfc2323cafa7584f0b7eac472de2b48ad2",
+      "upstream_sha256": "a83dd6b97e700271dd7d8b16537bdd560791f7ab497c2bfc12fa739914b0c888"
+    },
+    {
+      "path": "include/rex/graphics/d3d12/command_processor.h",
+      "sha256": "45e3163f9539210e739083a1a80c0566010942c6ab189504958028443b076d1c",
+      "upstream_sha256": "646460362f1b15e3a1309b669d799b582fe7bf57e050fabc2c5be65ec516bcb2"
+    },
+    {
+      "path": "include/rex/graphics/d3d12/native_rhi_d3d12.h",
+      "sha256": "b21e561d7b1952dd4380f23e3f7071effd5b151526b5a9cca102eace6c5d3658",
+      "upstream_sha256": null
+    },
+    {
+      "path": "include/rex/graphics/fifa08_frame_meter.h",
+      "sha256": "04e00b218a5ae9a0e7896c89d3e6a6d4844e51dc1bea126cf59e29f530551404",
+      "upstream_sha256": null
+    },
+    {
+      "path": "include/rex/graphics/fifa08_graphics_safety_policy.h",
+      "sha256": "b2eedb825c8cbf5ece40c0e46c25f2494b9eb250ad55741f70ac652b5e89b4b7",
+      "upstream_sha256": null
+    },
+    {
+      "path": "include/rex/graphics/fifa08_guest_frame_diagnostics.h",
+      "sha256": "0122ad0e82cb01ccbd6c070d6e4d8607c384c993fff8bb63844885046e84ae1a",
+      "upstream_sha256": null
+    },
+    {
+      "path": "include/rex/graphics/fifa08_readback_slots.h",
+      "sha256": "8299f2948f23e6bbbb7d0c4fa3b291c45e447c49df38c77829a8a60a324802b0",
+      "upstream_sha256": null
+    },
+    {
+      "path": "include/rex/graphics/native_guest_renderer.h",
+      "sha256": "4ae7ea604c11e9592f8c6a1228f02464c1c118c0625ff185e1566cf41982f470",
+      "upstream_sha256": null
+    },
+    {
+      "path": "include/rex/graphics/native_rhi.h",
+      "sha256": "0ecba0e17358c1d9749e6d06117f3fe342c80b288537ca3d2b48d0acd0d9153c",
+      "upstream_sha256": null
+    },
+    {
+      "path": "include/rex/graphics/pipeline/shader/spirv_translator.h",
+      "sha256": "b3737dc40301b58fedb9e90aad305f3f112f313ba4af01b5f976791be1104a47",
+      "upstream_sha256": "97d4f5c93ac2ac0a04a0bcff7254907fb12df5d83e29253c073b2ed8c258b552"
+    },
+    {
+      "path": "include/rex/graphics/vulkan/command_processor.h",
+      "sha256": "eeed4e39b529966a4c24bd8b0bf99e0a34f404a2740187385d1bb0d8e77d8692",
+      "upstream_sha256": "4868b37cf4d441e69751eaa109a496804df62efd8aef23f722287db062b84767"
+    },
+    {
+      "path": "include/rex/ppc/intrinsics.h",
+      "sha256": "795b9d5f67193f524dd1c4ca1c0f65d612a2924ac348f426eab8fb0f9bbc4259",
+      "upstream_sha256": "121c2ddd86917308c7f248ee0950baf04ce5c63c71658141165e93c5cf782451"
+    },
+    {
+      "path": "include/rex/result.h",
+      "sha256": "c9f34613b091ad037b46795659d449a49b58a92f4498f846b1ca3cd00da1f5b3",
+      "upstream_sha256": "edf401e5f6a55ecdf78965fb1927d78e44aefc08608bcb95c7acfd4bafa14850"
+    },
+    {
+      "path": "include/rex/rex_app.h",
+      "sha256": "bf1a2bc3dc6bcc86ea8c577a26189845bb2c4a4f6881d25929049cf1eeeae978",
+      "upstream_sha256": "bd847c79e07f935c5788529d300c18ba2c4d2ca946c80a3c8e0f405f31062f89"
+    },
+    {
+      "path": "include/rex/system/map_parser.h",
+      "sha256": "476c6a87aec2f2fc1cec358f298e093793fede7e5e8d519d08252a7eaef20085",
+      "upstream_sha256": "a4410df9d5020931bb4ea9b6ff90f1791fc43747a835010e11775e995f162558"
+    },
+    {
+      "path": "include/rex/types.h",
+      "sha256": "9d688171b5f8be722b553468cec061789c164e3c4360514c835ea592b9587cf4",
+      "upstream_sha256": "37e3f7ba20a4e7668d2253232f6e6cc7edd5f48846c7d5c80f498152c5bb7af2"
+    },
+    {
+      "path": "include/rex/ui/d3d12/d3d12_presenter.h",
+      "sha256": "5c463dee04f9e1f2694b6766854cf19509e595d721379f64c284fe0f63d0687a",
+      "upstream_sha256": "adc7cc3255bdfef0b07adbb1d6d329deb4a189ed83b58da80eff2519c0fef85a"
+    },
+    {
+      "path": "include/rex/ui/d3d12/startup_recovery.h",
+      "sha256": "d44b82b3913a2e444756ffd4341c33eab967cc4a3c7cdb8ad13ff5743bb6590f",
+      "upstream_sha256": null
+    },
+    {
+      "path": "include/rex/ui/presenter.h",
+      "sha256": "561efdaaeec0f77aefa9ba136a98bfc6c1b02edbc4a12e35a14beadf60971f6a",
+      "upstream_sha256": "7f053b9eed03291ced11be4296c6f91b68e84bc097b73e78e61aaa6090d70f20"
+    },
+    {
+      "path": "include/rex/ui/vulkan/fence_wait_timing.h",
+      "sha256": "e9f50a7de212c3517e3228545654694cb839f831772938dcfe664730e56f0bb8",
+      "upstream_sha256": null
+    },
+    {
+      "path": "include/rex/ui/vulkan/functions/device_1_0.inc",
+      "sha256": "fffc498fdf42c593c93e580e1f691b345a9c7211659e4a4c1fd917bd84c6e57f",
+      "upstream_sha256": "31c79dc340bd82560ba184312fb43f2a66ef66588e0606b8df76b4d273d3c921"
+    },
+    {
+      "path": "include/rex/ui/vulkan/presenter.h",
+      "sha256": "d542d268ac72d630fd3b3cbf0a9534b8d8b5f263016c69369b98c77ae5014205",
+      "upstream_sha256": "9c082d3e876b91f79ec0b0f694712027f484999c0fa912b7c0f1607ecc9a7fff"
+    },
+    {
+      "path": "include/rex/ui/vulkan/submission_tracker.h",
+      "sha256": "6103eb65c63aa05f54d04b19c75b6f33af01f25b36528d1997b738df16ef31ef",
+      "upstream_sha256": "157e8390d6a3dde10279bbb124673c12a72d0f3614a24caa0636050b273c4225"
+    },
+    {
+      "path": "src/core/clock.cpp",
+      "sha256": "d2fe0d022c2c5d7fd890919ddd11a0556fc9bae3265c487b95347c3fef58d1a6",
+      "upstream_sha256": "d72a7093e0029f85ffb6859b05de440416eb2f66157e2c5bc994b538a29f7de4"
+    },
+    {
+      "path": "src/graphics/CMakeLists.txt",
+      "sha256": "22d7e5311af18ef0020cad975d8b8e959b69ceaf8e63847b33de99c5e5149263",
+      "upstream_sha256": "1fe4de1dee7386f19cffa743aed8fc564e861b8bd91333522922f7bf1137d1ae"
+    },
+    {
+      "path": "src/graphics/command_processor.cpp",
+      "sha256": "e798c8ae80eff19b47b881e183f261fbf3bcecd0122b987cf8c86784ded30a85",
+      "upstream_sha256": "53a982be7550aee8aa3194eb0741d69b55af41ab2db65e611cdacec42a67a125"
+    },
+    {
+      "path": "src/graphics/d3d12/command_processor.cpp",
+      "sha256": "1bc186143256f9429613e9a60ac56abd60e3a6132be8fc992681c50be3964e90",
+      "upstream_sha256": "aeb26127de7b9dd0b797d6430187540e9b7ef970f2171e80a1819165318bdc58"
+    },
+    {
+      "path": "src/graphics/d3d12/native_rhi_d3d12.cpp",
+      "sha256": "dab221483b84c725c6e06e1bb9b326e4633b4b91df5172a678888beea3798e47",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/graphics/d3d12/texture_cache.cpp",
+      "upstream_sha256": "72ebe63457e42e1e11354e386635431a4be48a8239b0188bf6e82aaf4b114470",
+      "sha256": "f7cfb609ab0f16b79923280a5aad55352032a86b117c911b5d775fe362692ba1"
+    },
+    {
+      "path": "src/graphics/fifa08_async_resolve_meter.h",
+      "sha256": "dab4b9f06c71ad3a98f637a995a88ce395bcbc8c4fbcd31b3db83831a9ec011e",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/graphics/fifa08_readback_copy.h",
+      "sha256": "7f470e7397e4ca7ef5f0de04645840ed3006108ded87092ef6e30617d045febc",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/graphics/fifa08_sync_meter.h",
+      "sha256": "66e143fe34fd22606467d5394327a1b0ccb25030024c2308aed3ea7440df42ab",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/graphics/graphics_system.cpp",
+      "sha256": "bcffe8d3af88fd38e36da50ca8844bbc9e4b6d87e0ac563f5c5d271ae36c011f",
+      "upstream_sha256": "d834ab276411d69e6ec80e350fe6c7f64d6e4892f1eb0446ebff5e825d221042"
+    },
+    {
+      "path": "src/graphics/native_guest_renderer.cpp",
+      "sha256": "73d907c9f9426a473bf058fb666b80caba35b166f141ab4602ca69e8f53163a5",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/graphics/pipeline/render_target/cache.cpp",
+      "sha256": "c41f0bdabed00a87c7f4dace42113f4bdbe2f0f9fd78f3efa4e336c8d4ee09de",
+      "upstream_sha256": "cf6539a76788b32262359bd0aa9da80503b641b2e4cecdec4a0e2dccc1e8052e"
+    },
+    {
+      "path": "src/graphics/pipeline/shader/spirv_translator.cpp",
+      "sha256": "0b016ccd6d8acbd0824aa8b4a1d4d495f61664028e146e954c25d525474f8ab0",
+      "upstream_sha256": "18688a93062f8deed3c8919240f323a9c03d1ad524601cda1a20f100af2d5a14"
+    },
+    {
+      "path": "src/graphics/pipeline/shader/spirv_translator_alu.cpp",
+      "upstream_sha256": "dfe92d0b216c4d580ac7cbec8605b223d6af6c8ef38f87ec34f4db19c97a5f01",
+      "sha256": "21224e10724f2f33567a583b14b15ab50aecb804e811bfc4cf75848146742fab"
+    },
+    {
+      "path": "src/graphics/pipeline/shader/spirv_translator_rb.cpp",
+      "sha256": "ca750fac97365d528ec1c76f0d5b46d1dd891f91c30c8325c82d545482593994",
+      "upstream_sha256": "a4aaf9e6b8ab5fdce92ab19e1aa228cd439375f302739bc61c89d481d5699a24"
+    },
+    {
+      "path": "src/graphics/plugin_main.cpp",
+      "sha256": "9ea4a70a03a2d96e88c1fb9b06eb18b3211fb4af05c3aedfe6e27b50e802ab9f",
+      "upstream_sha256": "5a57e83ee731bed62744e735186bd958004737bf6a9583b8f1740a408d2df316"
+    },
+    {
+      "path": "src/graphics/shaders/bytecode/d3d12_5_1/resolve_downscale_cs.h",
+      "sha256": "595fd0efcd7bbfd367f127faa697821cd7892a6297f868a0fa83ba3b085c357a",
+      "upstream_sha256": "e5b944da4a5feefabd908b12e71f848cddd3599294754cf040f843638f3061a5"
+    },
+    {
+      "path": "src/graphics/shaders/resolve_downscale.cs.glsl",
+      "sha256": "be450dcb36d8ee27091dfb0f5d8e89a27f5fd4d4856376925174d7d624ac5911",
+      "upstream_sha256": "f2a4fc26fec514a7c3ac17406fe6c57705546381c86e416c1935db519749a8a0"
+    },
+    {
+      "path": "src/graphics/shaders/resolve_downscale.cs.hlsl",
+      "sha256": "b525d5711a9c2aaf11118905c3ede1b6b7948cc0957f4ae13ececd5655b75cbd",
+      "upstream_sha256": "7c0bd60d9183968ffd8ab2013801436eaa40b8a40ac898b476712570a6d1538f"
+    },
+    {
+      "path": "src/graphics/shaders/vulkan_spirv/resolve_downscale_cs.h",
+      "sha256": "b27a8ce3375ad105a3e5da6c21efecbeedb0fb64cd9b449f94ec6bf508a3943f",
+      "upstream_sha256": "f6dbabf1029543db34efca9dd1e84fc38d0c0020624fed82cf8db76949c540db"
+    },
+    {
+      "path": "src/graphics/vulkan/command_processor.cpp",
+      "sha256": "71c3e762f52713008e7623de37a7c1febf1d17a31da0b3fbe93a6d45d41e6f93",
+      "upstream_sha256": "4335110822d13947338efd7e773bd99266633d7083dfae9c9680034c0799dc77"
+    },
+    {
+      "path": "src/graphics/vulkan/pipeline_cache.cpp",
+      "sha256": "ae00a0e95c9df9876b6d76dc6bdb10e806f59f8868c305b7938476c3ad62c750",
+      "upstream_sha256": "a3dbb1a52cf6a0d6b4ce9dfb278e94e5c9fa3b93e753ad78e8a7bb2a9b6e9ca2"
+    },
+    {
+      "path": "src/graphics/vulkan/texture_cache.cpp",
+      "sha256": "26d2847eb9b3fb7688b06c6ec48538931878d4d0ec548823ecd8123133ab09a4",
+      "upstream_sha256": "45ed9556bd49e575698f782d49383ebc284d226a2d6214e9088bac04307b417c"
+    },
+    {
+      "path": "src/system/CMakeLists.txt",
+      "sha256": "762adada65072bb211ae96217c582e4347d1424e9f4eaa095ac182eff1ab8b6c",
+      "upstream_sha256": "0197c00a50fc3e82665b2b11fa2b9ef7b8bb5745c5764ff9a038936fcddf56b2"
+    },
+    {
+      "path": "src/system/map_parser.cpp",
+      "sha256": "da621501077d24a272fecd3820407a5162f45669707f1ae55761efe757331426",
+      "upstream_sha256": "d670e86864b2367c8e93fbd16942783ed30b0d64a85857bcb666b5d857c41200"
+    },
+    {
+      "path": "src/ui/d3d12/d3d12_presenter.cpp",
+      "sha256": "25ef8de9d8eeb4316bc8e6e4b22d89d6d1aec5cd443655c0d36c0fe9c43133ce",
+      "upstream_sha256": "1763e91f87470754c3943e0e2443a59fa8848f816ee8f4937d08c0d3174dd502"
+    },
+    {
+      "path": "src/ui/d3d12/fifa08_present_retry.h",
+      "sha256": "ee6bf727ff01155f785f84b043730856b42bd108ec459816004d40d9e7f86cd8",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/ui/fifa08_paint_coalescing.h",
+      "sha256": "97e4b320a862f3c5a857510fbc096b6efd6d70fb987e1a0d287a3489669bc6f9",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/ui/presenter.cpp",
+      "sha256": "858ddb36688e144252512f85d556c2764d396fd2fb91297d5a1e34fef1eaad8b",
+      "upstream_sha256": "59fbdfbbe8eea7d589976bf1fd019d786cc7f1bbed154c6a6a16e18adbdad8d4"
+    },
+    {
+      "path": "src/ui/vulkan/vulkan_device.cpp",
+      "sha256": "fc5aff90f440b034a95d4303b270c526dac63da11c9154f32baa6c10e9233675",
+      "upstream_sha256": "c90486459896caec42c6221c8c7ad287f2c4ce84e63ada5766389ab360cc83d6"
+    },
+    {
+      "path": "src/ui/vulkan/vulkan_presenter.cpp",
+      "sha256": "5e278de9c9aca016e1405d9aeeaafdccf2b94ea8e9a58ed0e498b299c12a8137",
+      "upstream_sha256": "a850f9764f62bc92ae5c5fdfa417e8879749074149953ff159631cbc4f95bb97"
+    },
+    {
+      "path": "src/ui/vulkan/vulkan_submission_tracker.cpp",
+      "sha256": "d4d86191b7f7aebfbbe044ac3a9867fde42cbd6429f2b57e69a5adfe36660d00",
+      "upstream_sha256": "ae776d6e76d324c035b1c1c6e9083d4fdf94b7bb53a329f82f58650399b9a478"
+    },
+    {
+      "path": "thirdparty/CMakeLists.txt",
+      "sha256": "aab557e15a9a6922d30758ec8ad5320ebe718d13be66b07ccad1be2c00c3de28",
+      "upstream_sha256": "5a8e14e4e3ce27da385c7a7d629accb59a84e1b8e81b97c79bcc994ca9d005ea"
+    }
+  ]
+}

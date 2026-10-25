@@ -1,0 +1,11 @@
+--- a/src/graphics/vulkan/command_processor.cpp
++++ b/src/graphics/vulkan/command_processor.cpp
+@@ -4991,8 +4991,9 @@
+   // that for simplicity.
+   while (fences_awaited < fences_total) {
++    // Poll completion directly; keep the blocking wait above for dependencies.
+     VkResult fence_status =
+-        dfn.vkWaitForFences(device, 1, &submissions_in_flight_fences_[fences_awaited], VK_TRUE, 0);
++        dfn.vkGetFenceStatus(device, submissions_in_flight_fences_[fences_awaited]);
+     if (fence_status != VK_SUCCESS) {
+       if (fence_status == VK_ERROR_DEVICE_LOST) {
