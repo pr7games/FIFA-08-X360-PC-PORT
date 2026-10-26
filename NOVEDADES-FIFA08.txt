@@ -1,0 +1,56 @@
+FIFA 08 PC - Novedades 1.0.0
+
+Primera versión estable final. Las entregas de desarrollo anteriores se conservan como preliminares archivadas.
+
+- FSR 1.0.2 oficial con reconstrucción EASU a la resolución seleccionada. Calidad a 1080p utiliza un buffer interno de 1600×900.
+- Corrección del tamaño del radar en todos los perfiles y resoluciones FSR, incluido 4K Calidad. Los modos nativos conservan su radar.
+- Los nativos mantienen su resolución interna y de salida. RCAS aplica nitidez a 1:1; 720p y 1080p usan mayor nitidez y omiten FXAA para conservar textos y detalles. El launcher explica este comportamiento.
+- Interfaz simplificada: VSync, aviso FSR unificado y contador con seis líneas.
+- El launcher muestra «FSR» y conserva las opciones de idioma y actualización.
+- D3D12 evita consultas redundantes de la fence de lectura cuando las escrituras ya terminaron. Se conservan ROV, el público y las protecciones de sincronización de arena.
+- El limitador mantiene plazos fijos, utiliza un temporizador de alta resolución y recupera intervalos perdidos para mejorar el frame pacing.
+- Incluye las correcciones existentes de texturas e interpolación de Vulkan.
+- Empaquetado desde una instalación local mediante una lista de componentes permitidos y validación de hashes. Se corrige el hash del ejecutable registrado en port-manifest.json.
+
+Los cambios visuales de FSR y nativos fueron confirmados por el usuario. No se ejecutó el juego para preparar este paquete; el rendimiento comparativo de las API y la ausencia total de stuttering no se dan por comprobados. La actualización conserva partidas, archivos del juego, mods y ajustes personales.
+
+FIFA 08 PC - Edicion publica
+
+Instalacion
+- Ejecuta Instalador FIFA 08.exe junto a la carpeta payload.
+- Selecciona tu copia compatible de FIFA 08 para Xbox 360: ISO, GOD o carpeta extraida.
+- El paquete incluye el port y el editor. Los archivos originales del juego se aportan durante la instalacion.
+- Requiere Windows de 64 bits, procesador con AVX2 y una GPU compatible con el motor grafico elegido.
+
+Launcher
+- D3D12 o Vulkan; resolucion, modo ventana/pantalla completa, limite de FPS, FXAA y VSync.
+- ES | EN cambia el idioma del launcher y del instalador.
+- Los idiomas del juego disponibles dependen de los que incluya tu copia original.
+- Mostrar FPS conserva el contador en pantalla.
+- Opciones permite activar/desactivar los avisos y el sonido de logros.
+
+Durante el juego
+- F7: menu de logros, progreso, filtros y descripciones originales en ingles.
+- F10: menu PC y salida a Windows. Este menu no pausa el partido.
+- Alt + Enter: alternar pantalla completa.
+- El progreso de logros es local. Los que dependen de servicios online originales no se habilitan por el port.
+- Restablecer logros esta en el visor del launcher; pide confirmacion y requiere cerrar el juego.
+
+Editor
+- FIFA08 editor by pr7.exe edita esta instalacion. Consulta modding/LEEME.txt.
+- Los originales se conservan para restaurar texturas individuales.
+
+Notas de esta edicion
+- Controles experimentales, paneles internos y captura F11 retirados de la interfaz publica.
+- Registros detallados apagados. Las instalaciones conservan un registro basico en Logs/fifa08.log.
+- Incluye las correcciones de lectura de imagen, visibilidad y filtrado de la ultima base.
+- El rendimiento depende del equipo y de la escena. Las cinematicas pueden mantener limites propios.
+- La validacion visual extendida de los errores intermitentes de arena y Vulkan sigue pendiente.
+
+PUBLIC EDITION - QUICK GUIDE
+Run Instalador FIFA 08.exe with the payload folder beside it. Provide your own supported Xbox 360 game copy.
+Choose graphics, display and game languages in the launcher. ES | EN changes the launcher/installer language.
+F7: achievements. F10: PC menu (does not pause gameplay). Alt + Enter: fullscreen.
+Achievement notification/sound options and confirmed progress reset are available in the launcher.
+Experimental controls and developer hotkeys are removed. Detailed traces are off; a basic log is kept in Logs/fifa08.log.
+Frame rates vary by scene/hardware. Cutscene limits and intermittent rendering issues require further gameplay validation.

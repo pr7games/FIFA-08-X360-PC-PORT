@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -22,7 +22,7 @@ namespace FIFA08Launcher {
 #if UPDATE_TEST_BUILD
   public const string CurrentVersion="0.0.5";
 #else
-  public const string CurrentVersion="1.0.1";
+  public const string CurrentVersion="1.0.0";
 #endif
   public const string Repository="https://github.com/pr7games/FIFA-08-X360-PC-PORT";
   public const string Latest="https://api.github.com/repos/pr7games/FIFA-08-X360-PC-PORT/releases/latest";
@@ -168,6 +168,6 @@ namespace FIFA08Launcher {
  internal sealed class UpdateProgress : Control {
   int value;public int Value{get{return value;}set{this.value=Math.Max(0,Math.Min(100,value));Invalidate();}}
   public UpdateProgress(){SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer,true);}
-  protected override void OnPaint(PaintEventArgs e){e.Graphics.Clear(Color.FromArgb(40,40,46));using(var brush=new SolidBrush(Color.FromArgb(231,26,42)))e.Graphics.FillRectangle(brush,0,0,Width*value/100,Height);}
+  protected override void OnPaint(PaintEventArgs e){e.Graphics.Clear(Color.FromArgb(40,40,46));using(var brush=new SolidBrush(PortUi.Accent))e.Graphics.FillRectangle(brush,0,0,Width*value/100,Height);}
  }
 }

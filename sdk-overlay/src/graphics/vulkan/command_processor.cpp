@@ -53,6 +53,8 @@
 #include <rex/ui/vulkan/util.h>
 
 // Legacy backend compatibility aliases for shared readback controls.
+REXCVAR_DECLARE(bool, readback_resolve_skip_unchanged);
+
 REXCVAR_DEFINE_BOOL(vulkan_readback_resolve, false, "GPU/Vulkan",
                     "Read render-to-texture results on the CPU")
     .lifecycle(rex::cvar::Lifecycle::kHotReload);
@@ -4277,7 +4279,7 @@ bool VulkanCommandProcessor::IssueDraw_MemexportReadbackFullPath(uint32_t total_
 
 bool VulkanCommandProcessor::IssueDraw_MemexportReadbackFastPath(uint32_t total_size) {
   // FIFA08_READBACK_SAFETY_V1
-  fifa08::sync_meter::Scope memexport_measure(fifa08::sync_meter::kVulkanMemexport);
+  fifa08::sync_meter::Scope memexport_measure(fifa08::sync_meter::kVulkanMemexport, true, REXCVAR_GET(gpu_log_sync_costs));
   if (!total_size || memexport_ranges_.empty()) {
     return true;
   }
@@ -4426,7 +4428,7 @@ bool VulkanCommandProcessor::IssueCopy() {
 
 bool VulkanCommandProcessor::IssueCopy_ReadbackResolvePath() {
   // FIFA08_READBACK_SAFETY_V1
-  fifa08::sync_meter::Scope resolve_measure(fifa08::sync_meter::kVulkanResolve);
+  fifa08::sync_meter::Scope resolve_measure(fifa08::sync_meter::kVulkanResolve, true, REXCVAR_GET(gpu_log_sync_costs));
   const ui::vulkan::VulkanDevice* const vulkan_device = GetVulkanDevice();
   const ui::vulkan::VulkanDevice::Functions& dfn = vulkan_device->functions();
   const VkDevice device = vulkan_device->device();
@@ -4527,7 +4529,7 @@ bool VulkanCommandProcessor::IssueCopy_ReadbackResolvePath() {
     if (dfn.vkInvalidateMappedMemoryRanges(device, 1, &range) != VK_SUCCESS) return false;
     uint8_t* destination = memory_->TranslatePhysical(written_address);
     if (destination) {
-      if (REXCVAR_QUERY(bool, readback_resolve_skip_unchanged))
+      if (REXCVAR_GET(readback_resolve_skip_unchanged))
         fifa08::CopyChangedReadback(destination, readback.mapped_data[read_index], written_length);
       else
         std::memcpy(destination, readback.mapped_data[read_index], written_length);
@@ -4950,7 +4952,7 @@ bool VulkanCommandProcessor::BeginGuestOcclusionQuery(uint32_t sample_count_addr
 }
 
 bool VulkanCommandProcessor::EndGuestOcclusionQuery(uint32_t sample_count_address) {
-  fifa08::sync_meter::Scope measure(fifa08::sync_meter::kVulkanQuery);
+  fifa08::sync_meter::Scope measure(fifa08::sync_meter::kVulkanQuery, true, REXCVAR_GET(gpu_log_sync_costs));
   if (!REXCVAR_GET(occlusion_query_enable) || !occlusion_query_resources_available_ ||
       !active_occlusion_query_.valid || occlusion_query_pool_ == VK_NULL_HANDLE ||
       occlusion_query_readback_mapping_ == nullptr) {

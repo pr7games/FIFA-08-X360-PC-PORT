@@ -135,7 +135,7 @@
     },
     {
       "path": "src/graphics/d3d12/command_processor.cpp",
-      "sha256": "1bc186143256f9429613e9a60ac56abd60e3a6132be8fc992681c50be3964e90",
+      "sha256": "5a876ee81a4d5caef31b7a80f7699cfb034a69be5be8c65cdb7de9684fddf1c2",
       "upstream_sha256": "aeb26127de7b9dd0b797d6430187540e9b7ef970f2171e80a1819165318bdc58"
     },
     {
@@ -150,7 +150,7 @@
     },
     {
       "path": "src/graphics/fifa08_async_resolve_meter.h",
-      "sha256": "dab4b9f06c71ad3a98f637a995a88ce395bcbc8c4fbcd31b3db83831a9ec011e",
+      "sha256": "5dd06d39ac51e86a005b3cbc0bafcfa1ea3b0762194d6c315defc5b5b053f3cb",
       "upstream_sha256": null
     },
     {
@@ -160,7 +160,7 @@
     },
     {
       "path": "src/graphics/fifa08_sync_meter.h",
-      "sha256": "66e143fe34fd22606467d5394327a1b0ccb25030024c2308aed3ea7440df42ab",
+      "sha256": "0b8530c7f3ef6e1bcea043458ef993e7b5f2f27dcd465d4bc673ef503b57ecc6",
       "upstream_sha256": null
     },
     {
@@ -180,13 +180,18 @@
     },
     {
       "path": "src/graphics/pipeline/shader/spirv_translator.cpp",
-      "sha256": "0b016ccd6d8acbd0824aa8b4a1d4d495f61664028e146e954c25d525474f8ab0",
+      "sha256": "54b3eae20e8ef79d2c7ed62b337c1d3c81503ddfac81a6abd36c1e78288bc963",
       "upstream_sha256": "18688a93062f8deed3c8919240f323a9c03d1ad524601cda1a20f100af2d5a14"
     },
     {
       "path": "src/graphics/pipeline/shader/spirv_translator_alu.cpp",
       "upstream_sha256": "dfe92d0b216c4d580ac7cbec8605b223d6af6c8ef38f87ec34f4db19c97a5f01",
       "sha256": "21224e10724f2f33567a583b14b15ab50aecb804e811bfc4cf75848146742fab"
+    },
+    {
+      "path": "src/graphics/pipeline/shader/spirv_translator_fetch.cpp",
+      "sha256": "cdfdfabd828bb89bf16e150e784896e16e120b5ae8c1ef243c566995cca6e99b",
+      "upstream_sha256": "b4cba3533cb7f5bdf92206493b49ded9e4e781194a23d363ffabd06ebda77e39"
     },
     {
       "path": "src/graphics/pipeline/shader/spirv_translator_rb.cpp",
@@ -220,7 +225,7 @@
     },
     {
       "path": "src/graphics/vulkan/command_processor.cpp",
-      "sha256": "71c3e762f52713008e7623de37a7c1febf1d17a31da0b3fbe93a6d45d41e6f93",
+      "sha256": "e865390ca2934bd6e2f93fa835a31e0e00dbcd8066cb829398cf3c1e6bcdcb52",
       "upstream_sha256": "4335110822d13947338efd7e773bd99266633d7083dfae9c9680034c0799dc77"
     },
     {
@@ -260,7 +265,7 @@
     },
     {
       "path": "src/ui/presenter.cpp",
-      "sha256": "858ddb36688e144252512f85d556c2764d396fd2fb91297d5a1e34fef1eaad8b",
+      "sha256": "fff9ff76fcb11d1db9148ac96e311872bcb600c1599ae9e92607cc73eb5b0805",
       "upstream_sha256": "59fbdfbbe8eea7d589976bf1fd019d786cc7f1bbed154c6a6a16e18adbdad8d4"
     },
     {
@@ -282,6 +287,86 @@
       "path": "thirdparty/CMakeLists.txt",
       "sha256": "aab557e15a9a6922d30758ec8ad5320ebe718d13be66b07ccad1be2c00c3de28",
       "upstream_sha256": "5a8e14e4e3ce27da385c7a7d629accb59a84e1b8e81b97c79bcc994ca9d005ea"
+    },
+    {
+      "path": "src/graphics/pipeline/shader/dxbc_translator_om.cpp",
+      "sha256": "f9f7abb0827358c331af550eef0b8eea1a5df603066646191920fb13d4d101bf",
+      "upstream_sha256": "d8704c6bcc04da97a7250f768e65c9f0b25e8ecbce378142722c28a07a046677"
+    },
+    {
+      "path": "src/graphics/pipeline/shader/dxbc_translator.cpp",
+      "sha256": "5298f40df1dd54b6e0895a370679008798e81ec0f0589bcffdeb66f4e878f341",
+      "upstream_sha256": "03d2cb7b240e80f4cf0c09cde2d6155e1bd891f1b305ef6d57178a2a8db2c98f"
+    },
+    {
+      "path": "thirdparty/fidelityfx-fsr-1.0.2/ffx_a.h",
+      "sha256": "f60e2722fcd13989523b9164d776ab382b3692791767f3bf8bb19967f763f3fb",
+      "upstream_sha256": null
+    },
+    {
+      "path": "thirdparty/fidelityfx-fsr-1.0.2/ffx_fsr1.h",
+      "sha256": "93c3922362ea7fc99cbcc698ca30c98de4f8c246d1fbb0b09e015ddef38ce3a5",
+      "upstream_sha256": null
+    },
+    {
+      "path": "thirdparty/fidelityfx-fsr-1.0.2/LICENSE.txt",
+      "sha256": "db089274ce766da70f5b7d791029c3486f9f9e27c8c79c652689603d3192e802",
+      "upstream_sha256": null
+    },
+    {
+      "path": "thirdparty/fidelityfx-fsr-1.0.2/UPSTREAM.json",
+      "sha256": "483bf19fb9e0f3586486048980c0e57cdc42daee9531eac054e13dc1f493e979",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/ui/shaders/fsr1/dither.hlsli",
+      "sha256": "f4f724239b0723863a5c3f47fd6f7ba48cc761b0e7b68767d07bee3f6334e385",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/ui/shaders/fsr1/fsr1.frag",
+      "sha256": "4594054f941963718eed062279b55a74406fb9d37f03eac866e541216b4ecd8d",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/ui/shaders/fsr1/fsr1.ps.hlsl",
+      "sha256": "618abb708899ce6f8e0ae4e646de7e71da932bb3c93479b1695a23130bd96df5",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/ui/shaders/fsr1/official.hlsli",
+      "sha256": "0c1978857edc2409c28740a0e8834b2768c109d0f0bf980efb65f5220105e9b6",
+      "upstream_sha256": null
+    },
+    {
+      "path": "src/ui/shaders/bytecode/d3d12_5_1/guest_output_ffx_fsr_easu_ps.h",
+      "sha256": "f5ba5e0d21bca02ccfca8384049a9301af20d901bb4b1404945b014f79cc27b0",
+      "upstream_sha256": "12019fe4a515059a7f6ef26e3efb24d18cfb0ec8143e343f229f55475600cd43"
+    },
+    {
+      "path": "src/ui/shaders/bytecode/d3d12_5_1/guest_output_ffx_fsr_rcas_dither_ps.h",
+      "sha256": "26d094e3d5db587152b807f207ba29dbc31622c2e7614dbd6e55c4c7c5107626",
+      "upstream_sha256": "3c6444ded368449f745a8577b4b86d62a26691752408e033f60c1f6af3626bd9"
+    },
+    {
+      "path": "src/ui/shaders/bytecode/d3d12_5_1/guest_output_ffx_fsr_rcas_ps.h",
+      "sha256": "80b2238a734b28995feaa708bca412d2ed308ca25682ba47a284cc323310f069",
+      "upstream_sha256": "2e37228e14022d1bba756726ed8c01cd501c477a064a15e2662017dfdb515754"
+    },
+    {
+      "path": "src/ui/shaders/vulkan_spirv/guest_output_ffx_fsr_easu_ps.h",
+      "sha256": "f79bbb4816562ad7f3d58e4934a9b6b93322d0a04e4cb23f3e58d2674643193e",
+      "upstream_sha256": "f4337cd793a7bf69b866d3f026ad4381bc073e4db839ab9def7f75a96b273602"
+    },
+    {
+      "path": "src/ui/shaders/vulkan_spirv/guest_output_ffx_fsr_rcas_dither_ps.h",
+      "sha256": "dfe96fa90cb15e7c4cdc0c78f01e26fde0eec32b4043c690b289d0695d453c04",
+      "upstream_sha256": "1470345f7f0cfb380a613d55a3e774a8c7c7ceabf532729e64f80e025c8c3f93"
+    },
+    {
+      "path": "src/ui/shaders/vulkan_spirv/guest_output_ffx_fsr_rcas_ps.h",
+      "sha256": "037c211fb94e15500fa25015acb4b398bca5e0b03f254064d95c9ea0ff1bfb05",
+      "upstream_sha256": "ac7f5a099e75237076cd89e4040643fc17fce9a7af3f1f963cb6467ed6a5ab85"
     }
   ]
 }

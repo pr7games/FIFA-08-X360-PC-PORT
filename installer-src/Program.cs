@@ -100,9 +100,8 @@ namespace FIFA08Installer
         private Button btnBrowseGod;
         private Button btnBrowseDest;
         private CheckBox chkShortcut;
-        private CheckBox chkSpanish;
         private Label lblStatus;
-        private ProgressBar progressBar;
+        private InstallerProgress progressBar;
         private Button btnInstall;
         private Button btnCancel;
         private Button btnClose;
@@ -112,6 +111,7 @@ namespace FIFA08Installer
         private CancellationTokenSource cancellationTokenSource;
         private bool isInstalling = false;
         private bool isCompleted = false;
+        private bool closeWhenStopped;
         private string finalInstalledFolder = "";
 
         private readonly string rootDir;
@@ -248,29 +248,18 @@ namespace FIFA08Installer
             chkShortcut.Cursor = Cursors.Hand;
             this.Controls.Add(chkShortcut);
 
-            chkSpanish = new InstallerCheckBox();
-            chkSpanish.Text = "Preferir español si está disponible";
-            chkSpanish.Font = new Font("Segoe UI", 9, FontStyle.Regular);
-            chkSpanish.ForeColor = Color.FromArgb(212, 212, 216);
-            chkSpanish.BackColor = Color.Transparent;
-            chkSpanish.Checked = System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "es";
-            chkSpanish.Location = new Point(ctrlX + 2, 264);
-            chkSpanish.Size = new Size(ctrlWidth - 4, 22);
-            chkSpanish.Cursor = Cursors.Hand;
-            this.Controls.Add(chkSpanish);
-
             // 5. Progreso y Estado (Progress & Status)
             lblStatus = new Label();
             lblStatus.Text = "Selecciona el origen y destino para comenzar la instalación.";
             lblStatus.Font = new Font("Segoe UI", 8.5f, FontStyle.Regular);
             lblStatus.ForeColor = Color.FromArgb(161, 161, 170);
             lblStatus.BackColor = Color.Transparent;
-            lblStatus.Location = new Point(ctrlX, 304);
+            lblStatus.Location = new Point(ctrlX, 274);
             lblStatus.Size = new Size(ctrlWidth, 20);
             this.Controls.Add(lblStatus);
 
-            progressBar = new ProgressBar();
-            progressBar.Location = new Point(ctrlX, 328);
+            progressBar = new InstallerProgress();
+            progressBar.Location = new Point(ctrlX, 298);
             progressBar.Size = new Size(ctrlWidth, 8);
             progressBar.Minimum = 0;
             progressBar.Maximum = 100;
@@ -280,7 +269,7 @@ namespace FIFA08Installer
             // 6. Botones de acción principales
             btnInstall = new InstallerButton { Primary = true, CornerRadius = 10 };
             btnInstall.Text = PortUi.T("INSTALAR FIFA 08");
-            btnInstall.Font = new Font("Segoe UI", 11, FontStyle.Bold);
+            btnInstall.Font = new Font("Segoe UI", 10, FontStyle.Bold);
             btnInstall.ForeColor = Color.White;
             btnInstall.BackColor = InstallerStyle.Accent; // Rojo FIFA
             btnInstall.FlatStyle = FlatStyle.Flat;
@@ -461,6 +450,7 @@ namespace FIFA08Installer
             worker.WorkerReportsProgress = true;
             worker.WorkerSupportsCancellation = true;
 
+            bool createShortcut = chkShortcut.Checked;
             worker.DoWork += (s, workerArgs) =>
             {
                 InstallerEngine engine = new InstallerEngine(rootDir);
@@ -469,7 +459,7 @@ namespace FIFA08Installer
                     worker.ReportProgress(percent, statusText);
                 };
 
-                engine.Install(source, dest, chkShortcut.Checked, chkSpanish.Checked, cancellationTokenSource.Token);
+                engine.Install(source, dest, createShortcut, cancellationTokenSource.Token);
             };
 
             worker.ProgressChanged += (s, progressArgs) =>
@@ -484,6 +474,7 @@ namespace FIFA08Installer
             worker.RunWorkerCompleted += (s, completedArgs) =>
             {
                 isInstalling = false;
+                if(closeWhenStopped){Close();return;}
                 if (completedArgs.Cancelled || (completedArgs.Error is OperationCanceledException))
                 {
                     SetInstallerStatus("Instalación cancelada.");
@@ -506,7 +497,7 @@ namespace FIFA08Installer
                     lblStatus.ForeColor = Color.FromArgb(74, 222, 128); // Verde suave éxito
                     btnInstall.Text = PortUi.T("▶   JUGAR AHORA");
                     btnInstall.Enabled = true;
-                    btnInstall.BackColor = Color.FromArgb(16, 185, 129); // Verde esmeralda éxito
+                    btnInstall.BackColor = InstallerStyle.Accent;
                     btnCancel.Text = PortUi.T("Cerrar");
                     btnCancel.Enabled = true;
                 }
@@ -524,7 +515,6 @@ namespace FIFA08Installer
             btnBrowseGod.Enabled = !installing;
             btnBrowseDest.Enabled = !installing;
             chkShortcut.Enabled = !installing;
-            chkSpanish.Enabled = !installing;
 
             if (installing)
             {
@@ -538,6 +528,18 @@ namespace FIFA08Installer
                 btnInstall.Text = PortUi.T("INSTALAR FIFA 08");
                 btnCancel.Text = PortUi.T("Salir");
             }
+        }
+
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if(isInstalling)
+            {
+                e.Cancel=true;
+                if(cancellationTokenSource!=null&&!cancellationTokenSource.IsCancellationRequested)
+                    BtnCancel_Click(this,EventArgs.Empty);
+                closeWhenStopped=cancellationTokenSource!=null&&cancellationTokenSource.IsCancellationRequested;
+            }
+            base.OnFormClosing(e);
         }
 
         private void Form_MouseDown(object sender, MouseEventArgs e)
@@ -896,7 +898,7 @@ namespace FIFA08Installer
             this.baseAppDir = baseAppDir;
         }
 
-        public void Install(string sourcePath, string destPath, bool createShortcut, bool patchSpanish, CancellationToken token)
+        public void Install(string sourcePath, string destPath, bool createShortcut, CancellationToken token)
         {
             Report(2, "Analizando archivo de origen...");
             token.ThrowIfCancellationRequested();
@@ -1030,8 +1032,8 @@ namespace FIFA08Installer
             token.ThrowIfCancellationRequested();
             Fifa08Languages.AdoptExtractedLocale(gameDataDir);
             var languages=Fifa08Languages.Detect(gameDataDir,null);
-            var text=(patchSpanish?Fifa08Languages.Resolve(languages.Text,"es"):null)??Fifa08Languages.Resolve(languages.Text,languages.DefaultText);
-            var commentary=(patchSpanish?Fifa08Languages.Resolve(languages.Commentary,"es"):null)??Fifa08Languages.Resolve(languages.Commentary,text.Code)??Fifa08Languages.Resolve(languages.Commentary,languages.DefaultCommentary);
+            var text=Fifa08Languages.Resolve(languages.Text,languages.DefaultText);
+            var commentary=Fifa08Languages.Resolve(languages.Commentary,text.Code)??Fifa08Languages.Resolve(languages.Commentary,languages.DefaultCommentary);
             string commentaryCode=commentary==null?"original":commentary.Code;
             Fifa08Languages.Configure(gameDataDir,text.Code,commentaryCode,null);
             var serializer=new JavaScriptSerializer();
@@ -1108,11 +1110,6 @@ namespace FIFA08Installer
             string file=Path.Combine(PayloadDirectory(),relativePath);
             return File.Exists(file)?file:null;
         }
-        private static void PatchLocaleSpanish(string gameDataDir)
-        {
-            Fifa08Languages.Configure(gameDataDir,"es","es",null);
-        }
-
         private static uint ReadUInt32BE(byte[] b, int offset)
         {
             return (uint)((b[offset] << 24) | (b[offset + 1] << 16) | (b[offset + 2] << 8) | b[offset + 3]);

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include <rex/ui/imgui_dialog.h>
 #include <rex/ui/window.h>
 #include "frame_meter.h"
@@ -104,51 +104,30 @@ class PcOverlay final : public rex::ui::ImGuiDialog {
           ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing;
       if (ImGui::Begin("FPS##fifa08_pc", nullptr, flags)) {
         if (ready_) {
-          if (gpu_available_) {
-            ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "GPU: %.1f cuadros enviados/s", gpu_fps_);
-            ImGui::Text("GPU P95: %.2f ms | Pico: %.2f ms", gpu_p95_ms_, gpu_max_ms_);
-          }
-          ImGui::TextColored(ImVec4(0.85f, 0.87f, 0.92f, 1.0f), "CPU: %.1f envios/s", fps_);
-          ImGui::TextColored(ImVec4(0.80f, 0.82f, 0.88f, 1.0f), "CPU P95: %.2f ms | Pico: %.2f ms", p95_ms_, max_ms_);
+          ImGui::Text("FPS: %.1f", gpu_available_ ? gpu_fps_ : fps_);
         } else {
-          ImGui::TextColored(ImVec4(1.0f, 1.0f, 1.0f, 1.0f), "Midiendo FPS...");
+          ImGui::TextUnformatted("FPS: --");
         }
-        ImGui::TextColored(ImVec4(0.65f, 0.68f, 0.74f, 1.0f), "F10: menu PC");
-        ImGui::Text("Objetivo: %u FPS", fifa08_target_fps.load());
         const char* api = std::getenv("FIFA08_GRAPHICS_API");
         ImGui::Text("API: %s", api ? api : "D3D12");
-        const auto scale = fifa08_render_scale.load();
+        const auto scale = std::max(1u, fifa08_render_scale.load());
         const auto width = fifa08_frontbuffer_width.load();
         const auto height = fifa08_frontbuffer_height.load();
+        ImGui::Text("BUFFER: %u x %u", width * scale, height * scale);
+        static const char* selected_resolution = std::getenv("FIFA08_SELECTED_RESOLUTION");
+        ImGui::Text("RESOLUCI\xC3\x93N: %s", selected_resolution ? selected_resolution : "--");
         int win_w = 0;
         int win_h = 0;
-        bool is_full = false;
         if (window_) {
           win_w = int(window_->GetActualPhysicalWidth());
           win_h = int(window_->GetActualPhysicalHeight());
-          is_full = window_->IsFullscreen();
         }
         if (!win_w || !win_h) {
           win_w = REXCVAR_QUERY(int32_t, window_width);
           win_h = REXCVAR_QUERY(int32_t, window_height);
-          is_full = REXCVAR_QUERY(bool, fullscreen);
         }
-        if (win_w && win_h) {
-          if (is_full) {
-            ImGui::TextColored(ImVec4(0.75f, 0.78f, 0.84f, 1.0f), "Pantalla: %d x %d (Completa)", win_w, win_h);
-          } else {
-            ImGui::TextColored(ImVec4(0.75f, 0.78f, 0.84f, 1.0f), "Ventana: %d x %d", win_w, win_h);
-          }
-        }
-        if (width && height) {
-          if (scale > 1) {
-            ImGui::TextColored(ImVec4(0.75f, 0.78f, 0.84f, 1.0f), "Buffer: %u x %u (%ux)", width * scale, height * scale, scale);
-          } else {
-            ImGui::TextColored(ImVec4(0.75f, 0.78f, 0.84f, 1.0f), "Buffer: %u x %u", width, height);
-          }
-        }
-        static const char* selected_resolution = std::getenv("FIFA08_SELECTED_RESOLUTION");
-        ImGui::TextColored(ImVec4(0.75f, 0.78f, 0.84f, 1.0f), "Resolucion: %s", selected_resolution ? selected_resolution : "Sin launcher");
+        ImGui::Text("VENTANA: %d x %d", win_w, win_h);
+        ImGui::TextUnformatted("F10 para abrir Menu");
       }
       ImGui::End();
       ImGui::PopStyleColor(3);

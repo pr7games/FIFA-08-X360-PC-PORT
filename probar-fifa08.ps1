@@ -106,6 +106,7 @@ if ($PrepareOnly) { return }
 $outputResolution = $Resolution.Replace('_fsr','')
 $useSpatialFsr = $Resolution.EndsWith('_fsr') -or $PostEffect -eq 'fsr'
 if ($FsrProfile -ne 'legacy') { $useSpatialFsr = $FsrProfile -ne 'native' }
+$nativeClarity = -not $useSpatialFsr -and $outputResolution -in @('720','1080')
 $internalResolution = $outputResolution
 if ($useSpatialFsr) {
     $internalResolution = switch ($outputResolution) {
@@ -124,15 +125,17 @@ if ($useSpatialFsr -and $FsrProfile -ne 'legacy') {
 }
 $displayConfig = Get-Fifa08DisplayConfig -Resolution $outputResolution -DisplayMode $DisplayMode
 $env:FIFA08_SELECTED_RESOLUTION = "$($displayConfig.BufferWidth) x $($displayConfig.BufferHeight)"
+$env:FIFA08_FSR_OUTPUT_WIDTH = if ($useSpatialFsr) { [string]$displayConfig.BufferWidth } else { '0' }
+$env:FIFA08_FSR_OUTPUT_HEIGHT = if ($useSpatialFsr) { [string]$displayConfig.BufferHeight } else { '0' }
 $renderConfig = Get-Fifa08DisplayConfig -Resolution $internalResolution -DisplayMode fullscreen
 $preset = @($renderConfig.BufferWidth, $renderConfig.BufferHeight, $renderConfig.RenderScale)
 $guestWidth = if($internalResolution -eq '1080'){960}else{1280}
 $guestHeight = if($internalResolution -eq '1080'){540}else{720}
 if($useSpatialFsr -and $FsrProfile -ne 'legacy'){
-    # Aligned guest grids keep half-width tiling pitches multiples of32.
+    # Guest grids use 32-pixel pitches; the renderer aligns each tile pitch separately.
     $table=@{
         '720'=@{performance=@(960,540,1);balanced=@(1088,612,1);quality=@(1152,648,1)}
-        '1080'=@{performance=@(960,540,1);balanced=@(1280,720,1);quality=@(1408,792,2)}
+        '1080'=@{performance=@(960,540,1);balanced=@(1280,720,1);quality=@(1600,900,2)}
         '1440'=@{performance=@(1280,720,1);balanced=@(1664,936,2);quality=@(1920,1080,2)}
         '2160'=@{performance=@(1920,1080,2);balanced=@(2560,1440,2);quality=@(2880,1620,3)}
     }
@@ -140,9 +143,14 @@ if($useSpatialFsr -and $FsrProfile -ne 'legacy'){
     $guestWidth=[int]($preset[0]/$preset[2]);$guestHeight=[int]($preset[1]/$preset[2])
     $internalResolution="$($preset[0])x$($preset[1])"
 }
+# Actual rasterized input before FSR (not the smaller Xbox coordinate grid).
+$env:FIFA08_FSR_INPUT_WIDTH=if($useSpatialFsr){[string]$preset[0]}else{'0'}
+$env:FIFA08_FSR_INPUT_HEIGHT=if($useSpatialFsr){[string]$preset[1]}else{'0'}
 $env:FIFA08_GUEST_WIDTH=[string]$guestWidth
 $env:FIFA08_GUEST_HEIGHT=[string]$guestHeight
 $env:FIFA08_NATIVE_1080=if($guestWidth -eq 960 -and $guestHeight -eq 540){'1'}else{'0'}
+# RCAS sharpens a full-resolution native frame without running EASU.
+$env:FIFA08_NATIVE_RCAS=if($useSpatialFsr){'0'}else{'1'}
 $fullscreenArgument = if ($DisplayMode -eq 'fullscreen') { '--fullscreen' } else { '--no-fullscreen' }
 $windowWidth = $displayConfig.WindowWidth
 $windowHeight = $displayConfig.WindowHeight
@@ -151,10 +159,10 @@ $arguments = @('--game_data_root', ('"' + $assets + '"'),
     '--user_data_root', ('"' + $userData + '"'), '--cache_root', ('"' + $cache + '"'),
     '--log_file', ('"' + $log + '"'), '--log_level', $(if ($TraceGpu) { 'info' } else { 'warning' }),
     ('--user_language=' + [Fifa08Languages]::UserLanguage($(if ($CommentaryLanguage -eq 'original') { $TextLanguage } else { $CommentaryLanguage }))),
-    ('--swap_post_effect=' + $(if ($useSpatialFsr -or $PostEffect -eq 'fsr') { 'none' } else { $PostEffect })),
+    ('--swap_post_effect=' + $(if ($useSpatialFsr -or $nativeClarity -or $PostEffect -eq 'fsr') { 'none' } else { $PostEffect })),
     ('--anisotropic_override=' + $Anisotropy),
     ('--mnk_mode=' + $KeyboardEnabled.ToString().ToLowerInvariant()),
-    '--present_fsr_sharpness_reduction=0',
+    ('--present_fsr_sharpness_reduction=' + $(if($useSpatialFsr){'0'}elseif($nativeClarity){'0.5'}else{'1'})),
     ('--present_effect=' + $(if ($useSpatialFsr) { 'fsr' } else { 'bilinear' })),
     ('--async_shader_compilation=' + $AsyncShaders.ToString().ToLowerInvariant()),
     ('--edram_ownership_no_wrap=' + $EdramProtection.ToString().ToLowerInvariant()),

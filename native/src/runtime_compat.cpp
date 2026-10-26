@@ -181,7 +181,7 @@ static std::pair<int,int> fifa08_guest_size() {
     const char* w=std::getenv("FIFA08_GUEST_WIDTH");
     const char* h=std::getenv("FIFA08_GUEST_HEIGHT");
     int width=w?std::atoi(w):0,height=h?std::atoi(h):0;
-    if(width>=320&&width<=1280&&width%64==0&&height==width*9/16)
+    if(width>=320&&width<=1280&&width%32==0&&height==width*9/16)
       return std::pair<int,int>{width,height};
     const char* legacy=std::getenv("FIFA08_NATIVE_1080");
     return legacy&&std::string_view(legacy)=="1"?std::pair<int,int>{960,540}:std::pair<int,int>{1280,720};
@@ -192,13 +192,64 @@ int fifa08_dimension(int original, int native1080) {
   const auto [w,h]=fifa08_guest_size();
   switch(original){
     case 1280:return w;
-    case 640:return w/2;
+    // Split at an aligned pitch: 800-wide (900p at GPU 2x) uses
+    // 416 + 384 pixel slices, both covered by a 416-pixel tile pitch.
+    case 640:return ((w/2+31)/32)*32;
     case 720:return h;
     case 736:return (h+31)&~31;
     case 256:return ((h*256/720+31)/32)*32;
     case 512:return 2*(((h*256/720+31)/32)*32);
     default:return original;
   }
+}
+
+
+// The radar is a separate pixel-based renderer. All spatial FSR presets
+// use the native output layout; native rendering keeps its original radar.
+static bool fifa08_radar_adjustment_enabled() {
+  static const bool enabled=[] {
+    const char* height=std::getenv("FIFA08_FSR_INPUT_HEIGHT");
+    const char* output=std::getenv("FIFA08_FSR_OUTPUT_HEIGHT");
+    const int ih=height?std::atoi(height):0, oh=output?std::atoi(output):0;
+    return ih>0 && oh>0;
+  }();
+  return enabled;
+}
+static std::pair<int,int> fifa08_radar_reference_size() {
+  static const auto size=[] {
+    if(!fifa08_radar_adjustment_enabled())return fifa08_guest_size();
+    const char* width=std::getenv("FIFA08_FSR_OUTPUT_WIDTH");
+    const char* height=std::getenv("FIFA08_FSR_OUTPUT_HEIGHT");
+    const int ow=width?std::atoi(width):0, oh=height?std::atoi(height):0;
+    if(ow==1920 && oh==1080)return std::pair<int,int>{960,540};
+    return std::pair<int,int>{1280,720};
+  }();
+  return size;
+}
+int fifa08_radar_dimension(int actual, bool height) {
+  if(!fifa08_radar_adjustment_enabled())return actual;
+  const auto [w,h]=fifa08_radar_reference_size();
+  return height?h:w;
+}
+void fifa08_scale_radar(PPCContext& ctx, uint8_t* base) {
+  if(!fifa08_radar_adjustment_enabled())return;
+  const auto [actual_w,actual_h]=fifa08_guest_size();
+  const auto [reference_w,reference_h]=fifa08_radar_reference_size();
+  const float grid_scale=float(actual_w)/float(reference_w);
+  const float scale=grid_scale*0.85f;
+  const uint32_t radar=ctx.r31.u32;
+  auto read=[&](uint32_t offset) {PPCRegister v{};v.u32=REX_LOAD_U32(radar+offset);return v.f32;};
+  auto write=[&](uint32_t offset,float f) {PPCRegister v{};v.f32=f;REX_STORE_U32(radar+offset,v.u32);};
+  const float width=read(912),height=read(916),x=read(1040),y=read(1044);
+  // Pixel geometry only: never pitch/world coordinates (944), opacity (960),
+  // texture IDs (1024), animation parameters, or player/profile data.
+  for(uint32_t offset: {912u,916u,928u,932u,976u,980u,992u,996u,
+                       1008u,1012u,1028u,1376u,1380u,1384u})
+    write(offset,read(offset)*scale);
+  // Keep the original horizontal center and bottom edge when shrinking 15%.
+  write(1040,x*grid_scale+width*(grid_scale-scale)*0.5f);
+  write(1044,y*grid_scale+height*(grid_scale-scale));
+  REXLOG_WARN("FIFA08 radar layout: FSR input_height={}, reference={}x{}, render={}x{}, radar_size=85%",std::getenv("FIFA08_FSR_INPUT_HEIGHT"),reference_w,reference_h,actual_w,actual_h);
 }
 
 void fifa08_scene_state(PPCContext& ctx, uint8_t* base) {

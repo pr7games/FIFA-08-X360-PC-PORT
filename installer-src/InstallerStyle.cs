@@ -4,6 +4,14 @@ using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 
 namespace FIFA08Installer {
+    public sealed class InstallerProgress:Control {
+        private int minimum,maximum=100,value;
+        public int Minimum{get{return minimum;}set{minimum=value;Invalidate();}}
+        public int Maximum{get{return maximum;}set{maximum=value;Invalidate();}}
+        public int Value{get{return value;}set{this.value=Math.Max(minimum,Math.Min(maximum,value));Invalidate();}}
+        public InstallerProgress(){SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.ResizeRedraw,true);BackColor=Color.FromArgb(38,38,43);}
+        protected override void OnPaint(PaintEventArgs e){e.Graphics.Clear(BackColor);int width=(int)((long)Width*(value-minimum)/Math.Max(1,maximum-minimum));using(var brush=new SolidBrush(InstallerStyle.Accent))e.Graphics.FillRectangle(brush,0,0,width,Height);}
+    }
     internal static class InstallerStyle {
         internal static readonly Color Accent = Color.FromArgb(224, 26, 34);
         internal static GraphicsPath Round(Rectangle rect, int radius) {

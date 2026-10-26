@@ -4,13 +4,16 @@
 #include <chrono>
 #include <rex/cvar.h>
 #include <rex/logging.h>
+REXCVAR_DECLARE(bool, gpu_log_sync_costs);
 
 namespace fifa08::sync_meter {
 enum Category { kD3D12Frame, kD3D12Query, kVulkanQuery, kD3D12Resolve, kVulkanResolve, kD3D12Memexport, kVulkanMemexport, kD3D12AllocatorReset, kD3D12ListReset, kD3D12Record, kD3D12ListClose, kD3D12Submit, kD3D12Signal, kD3D12UIExecute, kD3D12Present, kCount };
 class Scope {
  public:
   explicit Scope(Category category, bool relevant = true)
-      : category_(category), enabled_(relevant && REXCVAR_QUERY(bool, gpu_log_sync_costs)) {
+      : Scope(category, relevant, relevant && REXCVAR_QUERY(bool, gpu_log_sync_costs)) {}
+  Scope(Category category, bool relevant, bool logging_enabled)
+      : category_(category), enabled_(relevant && logging_enabled) {
     if (enabled_) start_ = Clock::now();
   }
   ~Scope() { Finish(); }

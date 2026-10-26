@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cctype>
 #include <cstdlib>
+#include <string_view>
 #include <chrono>
 #include <unordered_map>
 #include <utility>
@@ -1084,6 +1085,30 @@ Presenter::GuestOutputPaintFlow Presenter::GetGuestOutputPaintFlow(
   uint32_t output_height_clamped = std::min(output_height, max_rt_height);
 
 #if defined(REX_HAS_FIDELITYFX_SDK)
+  // FSR reconstructs to the selected resolution even if the physical window
+  // is smaller. Keep output_width/height for the final presentation fit only.
+  // Both API backends use this shared flow and allocate the intermediate size.
+  if (config.GetEffect() == GuestOutputPaintConfig::Effect::kFsr) {
+    static const std::pair<uint32_t, uint32_t> requested_fsr_output = [] {
+      auto read_dimension = [](const char* name) -> uint32_t {
+        const char* value = std::getenv(name);
+        if (!value || !*value) return 0;
+        char* end = nullptr;
+        unsigned long parsed = std::strtoul(value, &end, 10);
+        return end != value && *end == '\0' && parsed > 0 && parsed <= 16384
+                   ? uint32_t(parsed) : 0;
+      };
+      return std::make_pair(read_dimension("FIFA08_FSR_OUTPUT_WIDTH"),
+                            read_dimension("FIFA08_FSR_OUTPUT_HEIGHT"));
+    }();
+    if (requested_fsr_output.first && requested_fsr_output.second) {
+      output_width_clamped = std::min(requested_fsr_output.first, max_rt_width);
+      output_height_clamped = std::min(requested_fsr_output.second, max_rt_height);
+    }
+  }
+#endif
+
+#if defined(REX_HAS_FIDELITYFX_SDK)
   if (config.GetEffect() == GuestOutputPaintConfig::Effect::kCas ||
       config.GetEffect() == GuestOutputPaintConfig::Effect::kFsr ||
       config.GetEffect() == GuestOutputPaintConfig::Effect::kFsr2 ||
@@ -1178,9 +1203,13 @@ Presenter::GuestOutputPaintFlow Presenter::GetGuestOutputPaintFlow(
           ++easu_pass_count;
         }
       }
-      assert_true(flow.effect_count < flow.effects.size());
-      flow.effect_output_sizes[flow.effect_count] = ffx_last_size;
-      flow.effects[flow.effect_count++] = GuestOutputPaintEffect::kFsrRcas;
+      // Spatial FSR intentionally stops at EASU: no RCAS sharpening pass.
+      // Keep the experimental temporal path's existing behavior separate.
+      if (is_temporal_effect) {
+        assert_true(flow.effect_count < flow.effects.size());
+        flow.effect_output_sizes[flow.effect_count] = ffx_last_size;
+        flow.effects[flow.effect_count++] = GuestOutputPaintEffect::kFsrRcas;
+      }
     } else {
       // AMD FidelityFX Contrast Adaptive Sharpening - sharpen or downsample, or
       // upsample up to 2x2 if CAS is specified to be used for upscaling too.
@@ -1200,10 +1229,34 @@ Presenter::GuestOutputPaintFlow Presenter::GetGuestOutputPaintFlow(
   }
 #endif  // defined(REX_HAS_FIDELITYFX_SDK)
 
+#if defined(REX_HAS_FIDELITYFX_SDK)
+  // Native mode uses only FSR's adaptive sharpening stage, at the exact input
+  // size. It never fabricates a lower-resolution source or invokes EASU.
+  // Both APIs already implement RCAS as an intermediate or final pass.
+  static const bool native_rcas = [] {
+    const char* enabled = std::getenv("FIFA08_NATIVE_RCAS");
+    return enabled && std::string_view(enabled) == "1";
+  }();
+  if (native_rcas && config.GetEffect() == GuestOutputPaintConfig::Effect::kBilinear) {
+    const auto size = flow.effect_count ? flow.effect_output_sizes[flow.effect_count - 1]
+        : std::make_pair(properties.frontbuffer_width, properties.frontbuffer_height);
+    assert_true(flow.effect_count < flow.effects.size());
+    flow.effect_output_sizes[flow.effect_count] = size;
+    flow.effects[flow.effect_count++] = GuestOutputPaintEffect::kFsrRcas;
+  }
+#endif
+
   std::pair<uint32_t, uint32_t>* last_pre_bilinear_effect_size =
       flow.effect_count ? &flow.effect_output_sizes[flow.effect_count - 1] : nullptr;
+  bool needs_final_copy = false;
+#if defined(REX_HAS_FIDELITYFX_SDK)
+  // EASU writes an intermediate image and is not a supported final paint pass.
+  // A 1:1 bilinear copy preserves its samples when no window resize is needed.
+  needs_final_copy = flow.effect_count &&
+      flow.effects[flow.effect_count - 1] == GuestOutputPaintEffect::kFsrEasu;
+#endif
   if (!last_pre_bilinear_effect_size || last_pre_bilinear_effect_size->first != output_width ||
-      last_pre_bilinear_effect_size->second != output_height) {
+      last_pre_bilinear_effect_size->second != output_height || needs_final_copy) {
     // If not using FidelityFX, or it has reached its upscaling capabilities,
     // but more is needed, stretch via bilinear filtering.
     // Clamp the output size of the last effect to the maximum render target

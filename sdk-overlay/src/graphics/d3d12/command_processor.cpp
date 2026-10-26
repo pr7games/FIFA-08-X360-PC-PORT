@@ -39,6 +39,8 @@
 #include <rex/ui/d3d12/d3d12_presenter.h>
 #include <rex/ui/d3d12/d3d12_util.h>
 
+REXCVAR_DECLARE(bool, readback_resolve_skip_unchanged);
+
 REXCVAR_DEFINE_BOOL(d3d12_bindless, true, "GPU/D3D12", "Use bindless resources where available")
     .lifecycle(rex::cvar::Lifecycle::kRequiresRestart);
 
@@ -2832,7 +2834,7 @@ bool D3D12CommandProcessor::IssueDraw_MemexportReadbackFullPath(uint32_t total_s
 
 bool D3D12CommandProcessor::IssueDraw_MemexportReadbackFastPath(uint32_t total_size) {
   // FIFA08_READBACK_SAFETY_V1
-  fifa08::sync_meter::Scope memexport_measure(fifa08::sync_meter::kD3D12Memexport);
+  fifa08::sync_meter::Scope memexport_measure(fifa08::sync_meter::kD3D12Memexport, true, REXCVAR_GET(gpu_log_sync_costs));
   if (!total_size || memexport_ranges_.empty()) {
     return true;
   }
@@ -2953,7 +2955,7 @@ bool D3D12CommandProcessor::IssueCopy() {
 
 bool D3D12CommandProcessor::IssueCopy_ReadbackResolvePath() {
   // FIFA08_READBACK_SAFETY_V1
-  fifa08::sync_meter::Scope resolve_measure(fifa08::sync_meter::kD3D12Resolve);
+  fifa08::sync_meter::Scope resolve_measure(fifa08::sync_meter::kD3D12Resolve, true, REXCVAR_GET(gpu_log_sync_costs));
   uint32_t written_address, written_length;
   if (!render_target_cache_->Resolve(*memory_, *shared_memory_, *texture_cache_, written_address,
                                      written_length)) {
@@ -2989,7 +2991,7 @@ bool D3D12CommandProcessor::IssueCopy_ReadbackResolvePath() {
       return true;
     uint8_t* destination = memory_->TranslatePhysical(written_address);
     if (destination) {
-      if (REXCVAR_QUERY(bool, readback_resolve_skip_unchanged))
+      if (REXCVAR_GET(readback_resolve_skip_unchanged))
         fifa08::CopyChangedReadback(destination, rb.mapped_data[read_index], written_length);
       else
         std::memcpy(destination, rb.mapped_data[read_index], written_length);
@@ -3015,17 +3017,29 @@ bool D3D12CommandProcessor::IssueCopy_ReadbackResolvePath() {
   rb.active_resolve_layout = layout;
   rb.last_used_frame = frame_current_;
   if (readback_mode == ReadbackResolveMode::kFast && !rb.snapshot_initialized) {
-    // Only a cold/recycled surface drains its old producers. Never overwrite
-    // a still-in-flight slot merely because its allocation already fits.
-    const uint64_t pending = std::max(rb.submission_written[0], rb.submission_written[1]);
+    // A cold/recycled surface must publish a NEW, completed capture. Its old
+    // contents remain invalid, but only the slot we overwrite needs CPU-side
+    // retirement. Draining the newer producer too serializes the queue before
+    // recording the mandatory bootstrap copy, causing a second round trip.
+    write_index = rb.submission_written[0] <= rb.submission_written[1] ? 0 : 1;
+    const uint64_t pending = rb.submission_written[write_index];
     if (pending > submission_completed_) CheckSubmissionFence(pending);
     if (submission_completed_ == ~uint64_t(0) || submission_completed_ < pending)
       return false;
-  }
-  if (delayed) {
+    // Do not consume or coalesce against either old slot here. The bootstrap
+    // below still waits for and publishes this resolve's freshly copied data.
+  } else if (delayed) {
     // Poll only. Waiting on a producer in the current open submission would
     // flush and serialize every resolve in this command batch.
-    CheckSubmissionFence(0);
+    // If both producers are already known complete, polling the same fence
+    // cannot change this surface's ready-slot selection. Reclamation and
+    // device-loss checks still run when submissions/frames begin. Pending
+    // producers always retain the poll; cold bootstrap and all waits below
+    // are unchanged (arena exposure/feedback requires their exact ordering).
+    if (!fifa08::CanReleaseReadback(rb.submission_written[0],
+                                   rb.submission_written[1], submission_completed_)) {
+      CheckSubmissionFence(0);
+    }
     if (!(submission_completed_ != ~uint64_t(0))) return false;
     const uint32_t ready = fifa08::SelectCompletedReadback(
         rb.submission_written[0], rb.submission_written[1],
@@ -3182,7 +3196,8 @@ bool D3D12CommandProcessor::IssueCopy_ReadbackResolvePath() {
     ui::d3d12::util::CreateBufferRawUAV(device, downscale_descriptors[1].first,
                                         resolve_downscale_buffer_.Get(), aligned_written_length, 0);
 
-    PushUAVBarrier(scaled_resolve_buffer);
+    // The UAV-to-SRV transition orders previous writes before shader reads.
+    // If already in SRV state, there are no intervening UAV writes to order.
     texture_cache_->TransitionCurrentScaledResolveRange(
         D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
     SubmitBarriers();
@@ -3207,7 +3222,8 @@ bool D3D12CommandProcessor::IssueCopy_ReadbackResolvePath() {
         UINT(ResolveDownscaleRootParameter::kDestination), downscale_descriptors[1].second);
     deferred_command_list_.D3DDispatch(tile_count, 1, 1);
 
-    PushUAVBarrier(resolve_downscale_buffer_.Get());
+    // The UAV-to-copy transition also makes dispatch writes visible to the copy.
+    // A preceding UAV barrier would synchronize this same dependency twice.
     PushTransitionBarrier(resolve_downscale_buffer_.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
                           D3D12_RESOURCE_STATE_COPY_SOURCE);
     SubmitBarriers();
@@ -3430,7 +3446,7 @@ bool D3D12CommandProcessor::BeginSubmission(bool is_guest_command) {
   // resources early) and specifically for frames (not to queue too many), and
   // await the availability of the current frame.
   {
-    fifa08::sync_meter::Scope measure(fifa08::sync_meter::kD3D12Frame, is_opening_frame);
+    fifa08::sync_meter::Scope measure(fifa08::sync_meter::kD3D12Frame, is_opening_frame, REXCVAR_GET(gpu_log_sync_costs));
     CheckSubmissionFence(is_opening_frame ? closed_frame_submissions_[frame_current_ % kQueueFrames]
                                           : 0);
   }
@@ -3580,24 +3596,24 @@ bool D3D12CommandProcessor::EndSubmission(bool is_swap) {
     ID3D12CommandAllocator* command_allocator =
         command_allocator_writable_first_->command_allocator;
     {
-      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12AllocatorReset);
+      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12AllocatorReset, true, REXCVAR_GET(gpu_log_sync_costs));
       command_allocator->Reset();
     }
     {
-      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12ListReset);
+      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12ListReset, true, REXCVAR_GET(gpu_log_sync_costs));
       command_list_->Reset(command_allocator, nullptr);
     }
     {
-      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12Record);
+      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12Record, true, REXCVAR_GET(gpu_log_sync_costs));
       deferred_command_list_.Execute(command_list_, command_list_1_);
     }
     {
-      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12ListClose);
+      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12ListClose, true, REXCVAR_GET(gpu_log_sync_costs));
       command_list_->Close();
     }
     ID3D12CommandList* execute_command_lists[] = {command_list_};
     {
-      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12Submit);
+      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12Submit, true, REXCVAR_GET(gpu_log_sync_costs));
       direct_queue->ExecuteCommandLists(1, execute_command_lists);
     }
     command_allocator_writable_first_->last_usage_submission = submission_current_;
@@ -3614,7 +3630,7 @@ bool D3D12CommandProcessor::EndSubmission(bool is_swap) {
     }
 
     {
-      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12Signal);
+      fifa08::sync_meter::Scope phase(fifa08::sync_meter::kD3D12Signal, true, REXCVAR_GET(gpu_log_sync_costs));
       direct_queue->Signal(submission_fence_, submission_current_++);
     }
 
@@ -5101,7 +5117,7 @@ bool D3D12CommandProcessor::BeginGuestOcclusionQuery(uint32_t sample_count_addre
 
 bool D3D12CommandProcessor::EndGuestOcclusionQuery(
     uint32_t sample_count_address, xenos::xe_gpu_depth_sample_counts* sample_counts) {
-  fifa08::sync_meter::Scope measure(fifa08::sync_meter::kD3D12Query);
+  fifa08::sync_meter::Scope measure(fifa08::sync_meter::kD3D12Query, true, REXCVAR_GET(gpu_log_sync_costs));
   if (!REXCVAR_GET(occlusion_query_enable) || !occlusion_query_resources_available_ ||
       !active_occlusion_query_.valid || !occlusion_query_heap_ || !occlusion_query_readback_) {
     return false;

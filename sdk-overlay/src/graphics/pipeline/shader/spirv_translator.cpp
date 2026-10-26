@@ -3539,31 +3539,7 @@ spv::Id SpirvShaderTranslator::LoadOperandStorage(const InstructionOperand& oper
       assert_unhandled_case(operand.storage_source);
   }
   assert_true(vec4_pointer != spv::NoResult);
-  spv::Id value = builder_->createLoad(vec4_pointer, spv::NoPrecision);
-  // FIFA 08 cloth-only visual workaround, identified in the captured jersey
-  // draw. In these two materials c8.y scales the reconstructed tangent-space
-  // normal away from the flat normal before normalization (MAD then DP3/RSQ).
-  // The captured 1.7 gain over-emphasizes folds. Cap that gain at unity without
-  // touching the animation layer coordinate, geometry, or c8.x/z/w lighting.
-  // Exact guest shader hashes keep this out of skin, grass and other games.
-  // This is material tuning, not a proven fix for the Xenia parity defect.
-  if (!is_vertex_shader() &&
-      operand.storage_source == InstructionStorageSource::kConstantFloat &&
-      operand.storage_index == 8 &&
-      operand.storage_addressing_mode == InstructionStorageAddressingMode::kAbsolute &&
-      operand.GetComponent(0) == SwizzleSource::kY &&
-      operand.GetComponent(1) == SwizzleSource::kY &&
-      operand.GetComponent(2) == SwizzleSource::kY &&
-      operand.GetComponent(3) == SwizzleSource::kY &&
-      (current_shader().ucode_data_hash() == UINT64_C(0x16C459D473FE86C1) ||
-       current_shader().ucode_data_hash() == UINT64_C(0xAE30E8A5C08E1153))) {
-    spv::Id gain = builder_->createCompositeExtract(value, type_float_, 1);
-    gain = builder_->createBinBuiltinCall(type_float_, ext_inst_glsl_std_450_,
-                                          GLSLstd450FMin, gain,
-                                          builder_->makeFloatConstant(1.0f));
-    value = builder_->createCompositeInsert(gain, value, type_float4_, 1);
-  }
-  return value;
+  return builder_->createLoad(vec4_pointer, spv::NoPrecision);
 }
 
 spv::Id SpirvShaderTranslator::ApplyOperandModifiers(spv::Id operand_value,

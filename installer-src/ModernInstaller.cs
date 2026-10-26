@@ -29,13 +29,14 @@ namespace FIFA08Installer {public partial class InstallerForm {
   int ch=installCard.ClientSize.Height;
   installFields.Parent.SetBounds(12,12,cw-24,Math.Max(100,ch-108));
   installActions.SetBounds(12,ch-88,cw-24,78);
-  installFields.AutoScrollPosition=Point.Empty;
+  Point scroll=installFields.AutoScrollPosition;installFields.AutoScrollPosition=Point.Empty;
   float sx=Math.Max(.1f,(installFields.Parent.Width-34)/472f);
   foreach(var pair in modernRects){var r=pair.Value;pair.Key.SetBounds((int)(r.X*sx),r.Y,Math.Max(1,(int)(r.Width*sx)),r.Height);}
-  installFields.AutoScrollMinSize=new Size(0,340);
-  btnInstall.Font=new Font("Segoe UI",10,FontStyle.Bold);btnInstall.SetBounds((installActions.Width-180)/2,2,180,40);
+  installFields.AutoScrollMinSize=new Size(0,286);
+  installFields.AutoScrollPosition=new Point(-scroll.X,-scroll.Y);
+  btnInstall.SetBounds((installActions.Width-180)/2,2,180,40);
   btnCancel.SetBounds((installActions.Width-90)/2,48,90,26);
   if(uiLanguage!=null){uiLanguage.SetBounds(ClientSize.Width-100,6,80,24);uiLanguage.Visible=true;uiLanguage.BringToFront();}
-  ResumeLayout();Invalidate(true);
+  ResumeLayout();Invalidate();
  }
 }}

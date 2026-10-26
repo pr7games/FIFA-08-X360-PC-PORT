@@ -72,5 +72,18 @@ change('fifa08_recomp.16.cpp', 'sub_82276D50', body => {
   if (body.split(marker).length !== 2) throw new Error('Unexpected deadline throttle setup');
   return body.replace(marker, '\tctx.r4.s64 = fifa08_render_throttle_hz(ctx.r4.s32);\n' + marker);
 }, 'extern int fifa08_render_throttle_hz(int);');
+
+change('fifa08_recomp.175.cpp', 'sub_8248B998', body => {
+  if (body.includes('fifa08_scale_radar(ctx, base);')) return body;
+  const width='ctx.r4.u64 = ctx.r11.u32 & 0xFFFF;';
+  const height='ctx.r3.u64 = ctx.r9.u32 & 0xFFFF;';
+  const exit='loc_8248C250:\n';
+  for (const marker of [width,height,exit]) if(body.split(marker).length!==2)
+    throw new Error('Unexpected radar layout initializer');
+  return body.replace(width,'ctx.r4.u64 = fifa08_radar_dimension(ctx.r11.u32 & 0xFFFF, false);')
+    .replace(height,'ctx.r3.u64 = fifa08_radar_dimension(ctx.r9.u32 & 0xFFFF, true);')
+    .replace(exit,exit+'\tfifa08_scale_radar(ctx, base);\n');
+}, 'extern int fifa08_radar_dimension(int, bool);\nextern void fifa08_scale_radar(PPCContext&, uint8_t*);');
+
 for (const [file, source] of updates) fs.writeFileSync(file, source);
 console.log(`FIFA08 presentation: ${updates.size} generated files updated.`);

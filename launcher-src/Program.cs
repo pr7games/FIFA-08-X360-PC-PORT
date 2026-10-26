@@ -111,7 +111,7 @@ namespace FIFA08Launcher
             this.Cursor = Cursors.Hand;
             this.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
             this.ForeColor = Color.White;
-            this.BackColor = Color.FromArgb(224, 26, 34);
+            this.BackColor = PortUi.Accent;
         }
 
         protected override void OnMouseEnter(EventArgs e) { isHovered = true; Invalidate(); base.OnMouseEnter(e); }
@@ -134,7 +134,7 @@ namespace FIFA08Launcher
 
             Color bg = !this.Enabled ? Color.FromArgb(70, 70, 75) :
                        isPressed ? Color.FromArgb(170, 16, 22) :
-                       isHovered ? Color.FromArgb(238, 38, 46) : Color.FromArgb(224, 26, 34);
+                       isHovered ? Color.FromArgb(238, 38, 46) : PortUi.Accent;
 
             Rectangle rect = new Rectangle(0, 0, this.Width - 1, this.Height - 1);
             using (GraphicsPath path = UIHelper.GetRoundedPath(rect, CornerRadius))
@@ -209,12 +209,113 @@ namespace FIFA08Launcher
         }
     }
 
-    // Keep native ComboBox input, capture, accessibility and popup ownership.
-    // The previous ToolStrip/ListBox popup stole capture during MouseDown and
-    // could close/reopen or select on the opening mouse release.
+    // Keep ComboBox items/selection, but own the entire dark dropdown surface.
+    // Show after MouseUp so the opening click cannot select/close the popup.
     public class RoundedComboBox : ComboBox
     {
         private bool isHovered;
+        private bool dropdownPressed;
+        private bool suppressNextPopup;
+        private DarkChoicePopup darkPopup;
+        private bool PopupOpen { get { return darkPopup!=null&&!darkPopup.IsDisposed&&darkPopup.Visible; } }
+        private void ToggleDarkPopup()
+        {
+            if(suppressNextPopup){suppressNextPopup=false;return;}
+            if(PopupOpen){darkPopup.Close();return;}
+            if(!Enabled||Items.Count==0)return;
+            // A Closed handler still runs inside ToolStrip's modal close path.
+            // Dispose only on a later opening, after that path has unwound.
+            if(darkPopup!=null){darkPopup.Dispose();darkPopup=null;}
+            var popup=new DarkChoicePopup(this);darkPopup=popup;
+            popup.Closed+=(s,e)=>{if(e.CloseReason==ToolStripDropDownCloseReason.AppClicked&&ClientRectangle.Contains(PointToClient(Cursor.Position)))suppressNextPopup=true;Invalidate();};
+            // Open only after the opening mouse release, never during MouseDown:
+            // ToolStrip can then take capture without consuming that same click.
+            popup.Show(this,new Point(0,Height));Invalidate();
+        }
+        private sealed class DarkChoicePopup:ToolStripDropDown
+        {
+            internal readonly DarkChoiceList List;
+            public DarkChoicePopup(RoundedComboBox owner)
+            {
+                AutoSize=false;Padding=Padding.Empty;Margin=Padding.Empty;BackColor=owner.BackColor;
+                Renderer=new DarkPopupRenderer();
+                List=new DarkChoiceList(owner,this);
+                var host=new ToolStripControlHost(List){AutoSize=false,Padding=Padding.Empty,Margin=Padding.Empty,Size=List.Size};
+                Items.Add(host);Size=List.Size;DoubleBuffered=true;Opened+=(s,e)=>List.Focus();
+            }
+            protected override bool ProcessCmdKey(ref Message message,Keys keyData){if(List.HandleKey(keyData))return true;return base.ProcessCmdKey(ref message,keyData);}
+            protected override bool ProcessDialogKey(Keys keyData){if(List.HandleKey(keyData))return true;return base.ProcessDialogKey(keyData);}
+            protected override void OnPaintBackground(PaintEventArgs e){e.Graphics.Clear(BackColor);}
+            sealed class DarkPopupRenderer:ToolStripProfessionalRenderer
+            {
+                public DarkPopupRenderer():base(new DarkPopupColors()){}
+                protected override void OnRenderToolStripBackground(ToolStripRenderEventArgs e){e.Graphics.Clear(e.ToolStrip.BackColor);}
+                protected override void OnRenderImageMargin(ToolStripRenderEventArgs e){using(var brush=new SolidBrush(e.ToolStrip.BackColor))e.Graphics.FillRectangle(brush,e.AffectedBounds);}
+                protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e){using(var pen=new Pen(Color.FromArgb(46,46,52)))e.Graphics.DrawRectangle(pen,0,0,Math.Max(0,e.ToolStrip.Width-1),Math.Max(0,e.ToolStrip.Height-1));}
+            }
+            sealed class DarkPopupColors:ProfessionalColorTable
+            {
+                public override Color ToolStripDropDownBackground{get{return Color.FromArgb(22,22,25);}}
+                public override Color MenuBorder{get{return Color.FromArgb(46,46,52);}}
+                public override Color ImageMarginGradientBegin{get{return ToolStripDropDownBackground;}}
+                public override Color ImageMarginGradientMiddle{get{return ToolStripDropDownBackground;}}
+                public override Color ImageMarginGradientEnd{get{return ToolStripDropDownBackground;}}
+            }
+        }
+        private sealed class DarkChoiceList:Control
+        {
+            readonly RoundedComboBox owner;readonly DarkChoicePopup popup;readonly int rowHeight,rows;
+            int top,highlight;
+            public DarkChoiceList(RoundedComboBox owner,DarkChoicePopup popup)
+            {
+                this.owner=owner;this.popup=popup;Font=owner.Font;BackColor=owner.BackColor;ForeColor=owner.ForeColor;
+                SetStyle(ControlStyles.UserPaint|ControlStyles.AllPaintingInWmPaint|ControlStyles.OptimizedDoubleBuffer|ControlStyles.ResizeRedraw|ControlStyles.Selectable,true);
+                rowHeight=Math.Max(owner.ItemHeight,Font.Height+10);
+                int available=Math.Max(rowHeight,Screen.FromControl(owner).WorkingArea.Height/2);
+                rows=Math.Max(1,Math.Min(owner.Items.Count,Math.Min(owner.MaxDropDownItems,available/rowHeight)));
+                Size=new Size(Math.Max(owner.Width,owner.DropDownWidth),rows*rowHeight+2);
+                highlight=Math.Max(0,owner.SelectedIndex);EnsureVisible();AccessibleRole=AccessibleRole.List;
+            }
+            void EnsureVisible(){if(highlight<top)top=highlight;else if(highlight>=top+rows)top=highlight-rows+1;top=Math.Max(0,Math.Min(Math.Max(0,owner.Items.Count-rows),top));Invalidate();}
+            public bool HandleKey(Keys data)
+            {
+                Keys key=data&Keys.KeyCode;
+                if(key==Keys.Escape||key==Keys.F4){popup.Close();return true;}
+                if(key==Keys.Enter||key==Keys.Space){Commit();return true;}
+                if(key==Keys.Up)highlight=Math.Max(0,highlight-1);
+                else if(key==Keys.Down)highlight=Math.Min(owner.Items.Count-1,highlight+1);
+                else if(key==Keys.Home)highlight=0;
+                else if(key==Keys.End)highlight=owner.Items.Count-1;
+                else if(key==Keys.PageUp)highlight=Math.Max(0,highlight-rows);
+                else if(key==Keys.PageDown)highlight=Math.Min(owner.Items.Count-1,highlight+rows);
+                else return false;
+                EnsureVisible();return true;
+            }
+            void Commit(){if(highlight>=0&&highlight<owner.Items.Count){owner.SelectedIndex=highlight;owner.OnSelectionChangeCommitted(EventArgs.Empty);}popup.Close(ToolStripDropDownCloseReason.ItemClicked);owner.Focus();}
+            protected override bool IsInputKey(Keys keyData){return true;}
+            protected override void OnKeyDown(KeyEventArgs e){if(HandleKey(e.KeyData)){e.Handled=true;e.SuppressKeyPress=true;}base.OnKeyDown(e);}
+            protected override void OnKeyPress(KeyPressEventArgs e)
+            {
+                if(!char.IsControl(e.KeyChar))for(int offset=1;offset<=owner.Items.Count;offset++){int index=(highlight+offset)%owner.Items.Count;if(owner.GetItemText(owner.Items[index]).StartsWith(e.KeyChar.ToString(),StringComparison.CurrentCultureIgnoreCase)){highlight=index;EnsureVisible();break;}}
+                base.OnKeyPress(e);
+            }
+            protected override void OnMouseMove(MouseEventArgs e){base.OnMouseMove(e);int index=top+(e.Y-1)/rowHeight;if(index>=0&&index<owner.Items.Count&&highlight!=index){highlight=index;Invalidate();}}
+            protected override void OnMouseUp(MouseEventArgs e){base.OnMouseUp(e);if(e.Button!=MouseButtons.Left)return;if(owner.Items.Count>rows&&e.X>=Width-12){top=Math.Max(0,Math.Min(owner.Items.Count-rows,(e.Y-1)*(owner.Items.Count-rows)/Math.Max(1,Height-2)));Invalidate();return;}int index=top+(e.Y-1)/rowHeight;if(index>=0&&index<owner.Items.Count){highlight=index;Commit();}}
+            protected override void OnMouseWheel(MouseEventArgs e){base.OnMouseWheel(e);top=Math.Max(0,Math.Min(Math.Max(0,owner.Items.Count-rows),top-e.Delta/120*3));Invalidate();}
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                e.Graphics.Clear(BackColor);int gutter=owner.Items.Count>rows?12:0;
+                for(int row=0;row<rows&&top+row<owner.Items.Count;row++)
+                {
+                    int index=top+row;var rect=new Rectangle(1,1+row*rowHeight,Width-2-gutter,rowHeight);
+                    if(index==highlight)using(var fill=new SolidBrush(PortUi.Accent))e.Graphics.FillRectangle(fill,rect);
+                    rect.X+=10;rect.Width=Math.Max(1,rect.Width-18);
+                    TextRenderer.DrawText(e.Graphics,owner.GetItemText(owner.Items[index]),Font,rect,ForeColor,TextFormatFlags.Left|TextFormatFlags.VerticalCenter|TextFormatFlags.SingleLine|TextFormatFlags.EndEllipsis|TextFormatFlags.NoPrefix);
+                }
+                if(gutter>0){int height=Math.Max(20,(Height-2)*rows/owner.Items.Count),y=1+(Height-2-height)*top/Math.Max(1,owner.Items.Count-rows);using(var thumb=new SolidBrush(Color.FromArgb(92,92,102)))e.Graphics.FillRectangle(thumb,Width-8,y,4,height);}
+                using(var border=new Pen(Color.FromArgb(46,46,52)))e.Graphics.DrawRectangle(border,0,0,Width-1,Height-1);
+            }
+        }
         private PopupBorderWindow popupBorder;
         private IntPtr popupBackgroundBrush;
         [DllImport("gdi32.dll")]
@@ -261,14 +362,64 @@ namespace FIFA08Launcher
         private static extern int ReleaseDC(IntPtr hwnd, IntPtr dc);
         [DllImport("user32.dll")]
         private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rect);
+        [DllImport("user32.dll", EntryPoint = "SendMessageW")]
+        private static extern IntPtr GetListItemRect(IntPtr hwnd, int message, IntPtr index, out NativeRect rect);
+        [DllImport("user32.dll")]
+        private static extern bool ClientToScreen(IntPtr hwnd, ref Point point);
 
         // Keep the native list (including scrolling/capture), but remove its
         // accent-colored theme border. Paint only its non-client outline.
         private sealed class PopupBorderWindow : NativeWindow
         {
-            public PopupBorderWindow(IntPtr hwnd) { AssignHandle(hwnd); }
+            private readonly RoundedComboBox owner;
+            public PopupBorderWindow(IntPtr hwnd, RoundedComboBox owner) { this.owner=owner; AssignHandle(hwnd); }
+            private void DrawClient(Graphics graphics)
+            {
+                NativeRect client;
+                if(!GetClientRect(Handle,out client))return;
+                using(var background=new SolidBrush(owner.BackColor))
+                    graphics.FillRectangle(background,0,0,client.Right,client.Bottom);
+                int top=SendMessage(Handle,0x018E,IntPtr.Zero,IntPtr.Zero).ToInt32(); // LB_GETTOPINDEX
+                int selected=SendMessage(Handle,0x0188,IntPtr.Zero,IntPtr.Zero).ToInt32(); // LB_GETCURSEL
+                for(int index=Math.Max(0,top);index<owner.Items.Count;index++)
+                {
+                    NativeRect item;
+                    if(GetListItemRect(Handle,0x0198,new IntPtr(index),out item).ToInt64()==-1)break;
+                    if(item.Top>=client.Bottom)break;
+                    if(item.Bottom<=0)continue;
+                    var state=index==selected?DrawItemState.Selected:DrawItemState.None;
+                    owner.OnDrawItem(new DrawItemEventArgs(graphics,owner.Font,
+                        Rectangle.FromLTRB(item.Left,item.Top,item.Right,item.Bottom),index,state,owner.ForeColor,owner.BackColor));
+                }
+            }
             protected override void WndProc(ref Message m)
             {
+                // Windows can snapshot a dropdown for its opening animation using
+                // WM_PRINT rather than WM_PAINT. Draw that snapshot ourselves too,
+                // so the native light background never enters the animation.
+                if((m.Msg==0x0317||m.Msg==0x0318)&&m.WParam!=IntPtr.Zero)
+                {
+                    using(var graphics=Graphics.FromHdc(m.WParam))
+                    {
+                        var saved=graphics.Save();
+                        try
+                        {
+                            if(m.Msg==0x0317)
+                            {
+                                NativeRect window;Point origin=Point.Empty;
+                                if(GetWindowRect(Handle,out window)&&ClientToScreen(Handle,ref origin))
+                                {
+                                    using(var background=new SolidBrush(owner.BackColor))graphics.FillRectangle(background,0,0,window.Right-window.Left,window.Bottom-window.Top);
+                                    using(var border=new Pen(Color.FromArgb(46,46,52)))graphics.DrawRectangle(border,0,0,Math.Max(0,window.Right-window.Left-1),Math.Max(0,window.Bottom-window.Top-1));
+                                    graphics.TranslateTransform(origin.X-window.Left,origin.Y-window.Top);
+                                }
+                            }
+                            DrawClient(graphics);
+                        }
+                        finally{graphics.Restore(saved);}
+                    }
+                    m.Result=IntPtr.Zero;return;
+                }
                 // The popup is a separate native window. Its initial erase
                 // must be dark too, before owner-drawn rows are available.
                 if (m.Msg == 0x0014 && m.WParam != IntPtr.Zero)
@@ -289,9 +440,7 @@ namespace FIFA08Launcher
                     try{NativeRect client;if(popupDC!=IntPtr.Zero&&GetClientRect(Handle,out client)&&client.Right>0&&client.Bottom>0){
                         using(Graphics target=Graphics.FromHdc(popupDC))
                         using(BufferedGraphics buffer=BufferedGraphicsManager.Current.Allocate(target,new Rectangle(0,0,client.Right,client.Bottom))){
-                            buffer.Graphics.Clear(Color.FromArgb(22,22,25));IntPtr offscreen=buffer.Graphics.GetHdc();
-                            try{Message print=Message.Create(Handle,0x0318,offscreen,new IntPtr(0x1C));base.WndProc(ref print);}
-                            finally{buffer.Graphics.ReleaseHdc(offscreen);}buffer.Render(target);
+                            DrawClient(buffer.Graphics);buffer.Render(target);
                         }
                     }}finally{EndPaint(Handle,ref paint);}m.Result=IntPtr.Zero;return;
                 }
@@ -327,9 +476,9 @@ namespace FIFA08Launcher
             {
                 // Reapplying the theme every time the list opens causes an
                 // unnecessary theme-change repaint during the show animation.
-                SetWindowTheme(info.List, "", "");
                 if (popupBorder != null) popupBorder.ReleaseHandle();
-                popupBorder = new PopupBorderWindow(info.List);
+                popupBorder = new PopupBorderWindow(info.List,this);
+                SetWindowTheme(info.List, "", "");
             }
         }
 
@@ -370,6 +519,7 @@ namespace FIFA08Launcher
         }
         protected override void OnHandleDestroyed(EventArgs e)
         {
+            if(darkPopup!=null){darkPopup.Close();darkPopup=null;}
             if (popupBorder != null) { popupBorder.ReleaseHandle(); popupBorder = null; }
             if (popupBackgroundBrush != IntPtr.Zero)
             {
@@ -399,7 +549,7 @@ namespace FIFA08Launcher
             }
             if (e.Index < 0 || e.Index >= Items.Count) return;
             Color background = (e.State & DrawItemState.Selected) != 0
-                ? Color.FromArgb(224, 26, 34) : BackColor;
+                ? PortUi.Accent : BackColor;
             using (SolidBrush brush = new SolidBrush(background))
                 e.Graphics.FillRectangle(brush, e.Bounds);
             Rectangle text = new Rectangle(e.Bounds.X + 12, e.Bounds.Y,
@@ -412,6 +562,17 @@ namespace FIFA08Launcher
 
         protected override void WndProc(ref Message m)
         {
+            if(DropDownStyle==ComboBoxStyle.DropDownList)
+            {
+                if(m.Msg==0x0201||m.Msg==0x0203){Focus();dropdownPressed=true;m.Result=IntPtr.Zero;return;}
+                if(m.Msg==0x0202){if(dropdownPressed){dropdownPressed=false;ToggleDarkPopup();}m.Result=IntPtr.Zero;return;}
+                if(m.Msg==0x0100||m.Msg==0x0104)
+                {
+                    Keys key=(Keys)m.WParam.ToInt32();
+                    if(PopupOpen&&darkPopup.List.HandleKey(key|ModifierKeys)){m.Result=IntPtr.Zero;return;}
+                    if((key==Keys.F4&&(ModifierKeys&Keys.Alt)==0)||key==Keys.Space||key==Keys.Enter||((key==Keys.Down||key==Keys.Up)&&(ModifierKeys&Keys.Alt)!=0)){ToggleDarkPopup();m.Result=IntPtr.Zero;return;}
+                }
+            }
             if (m.Msg == 0x0134) // WM_CTLCOLORLISTBOX: native popup's background.
             {
                 int background = ColorTranslator.ToWin32(Color.FromArgb(22, 22, 25));
@@ -474,14 +635,14 @@ namespace FIFA08Launcher
             Rectangle rect = new Rectangle(0, 0, this.Width - 1, this.Height - 1);
             using (GraphicsPath path = UIHelper.GetRoundedPath(rect, CornerRadius))
             {
-                Color boxBg = !Enabled ? Color.FromArgb(17,17,19) : DroppedDown ? Color.FromArgb(28, 28, 32) :
+                Color boxBg = !Enabled ? Color.FromArgb(17,17,19) : PopupOpen ? Color.FromArgb(28, 28, 32) :
                               isHovered ? Color.FromArgb(26, 26, 30) : Color.FromArgb(22, 22, 25);
                 using (SolidBrush b = new SolidBrush(boxBg))
                 {
                     g.FillPath(b, path);
                 }
 
-                Color borderColor = !Enabled ? Color.FromArgb(32,32,36) : (DroppedDown || this.Focused) ? Color.FromArgb(224, 26, 34) :
+                Color borderColor = !Enabled ? Color.FromArgb(32,32,36) : (PopupOpen || this.Focused) ? PortUi.Accent :
                                     isHovered ? Color.FromArgb(70, 70, 78) : Color.FromArgb(46, 46, 52);
                 using (Pen p = new Pen(borderColor, 1.2f))
                 {
@@ -525,7 +686,7 @@ namespace FIFA08Launcher
 
     public class RedCheckBox : CheckBox
     {
-        private static readonly Color RedColor = Color.FromArgb(224, 26, 34);
+        private static readonly Color RedColor = PortUi.Accent;
         private static readonly Color BorderColor = Color.FromArgb(70, 70, 75);
         private static readonly Color BoxBg = Color.FromArgb(24, 24, 24);
 
@@ -905,7 +1066,7 @@ namespace FIFA08Launcher
             panelControls.Controls.Add(chkShowFps);
 
             chkVSync = new RedCheckBox();
-            chkVSync.Text = "VSync (Sincronizaci\u00f3n)";
+            chkVSync.Text = "VSync";
             chkVSync.Checked = false;
             panelControls.Controls.Add(chkVSync);
 
@@ -1062,7 +1223,7 @@ namespace FIFA08Launcher
             using (Font fontTitle = new Font("Segoe UI", 14.5f, FontStyle.Bold))
             using (Font fontAuthor = new Font("Segoe UI", 10.5f, FontStyle.Bold))
             using (SolidBrush brushWhite = new SolidBrush(Color.White))
-            using (SolidBrush brushRed = new SolidBrush(Color.FromArgb(224, 26, 34)))
+            using (SolidBrush brushRed = new SolidBrush(PortUi.Accent))
             using (StringFormat sf = (StringFormat)StringFormat.GenericTypographic.Clone())
             {
                 sf.FormatFlags |= StringFormatFlags.MeasureTrailingSpaces | StringFormatFlags.NoWrap;

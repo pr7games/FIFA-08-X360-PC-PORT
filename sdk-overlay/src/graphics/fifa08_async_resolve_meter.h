@@ -4,12 +4,13 @@
 #include <cstdint>
 #include <rex/cvar.h>
 #include <rex/logging.h>
+REXCVAR_DECLARE(bool, gpu_log_sync_costs);
 
 namespace fifa08 {
 enum class ResolveDecision { kQueued, kCoalesced, kCold };
 // Aggregated telemetry only, under the launcher's existing sync-cost switch.
 inline void RecordResolveDecision(bool vulkan, ResolveDecision decision) {
-  if (!REXCVAR_QUERY(bool, gpu_log_sync_costs)) return;
+  if (!REXCVAR_GET(gpu_log_sync_costs)) return;
   using Clock = std::chrono::steady_clock;
   struct Counters {
     uint64_t calls=0, queued=0, coalesced=0, cold=0;

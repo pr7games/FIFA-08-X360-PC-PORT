@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 public static class PortUi {
+ public static readonly Color Accent=Color.FromArgb(224,26,34);
  public static bool English=Read();
  static string Preference {get{return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"PR7","FIFA08Port","ui-language.txt");}}
  static bool Read(){try{return File.ReadAllText(Preference).Trim()=="en";}catch(IOException){return false;}catch(UnauthorizedAccessException){return false;}}
@@ -15,8 +16,8 @@ public static class PortUi {
 {"Stick izquierdo - arriba","Left stick - up"},{"Stick izquierdo - abajo","Left stick - down"},{"Stick izquierdo - izquierda","Left stick - left"},{"Stick izquierdo - derecha","Left stick - right"},{"Stick derecho - arriba","Right stick - up"},{"Stick derecho - abajo","Right stick - down"},{"Stick derecho - izquierda","Right stick - left"},{"Stick derecho - derecha","Right stick - right"},{"Gatillo izquierdo (LT / L2)","Left trigger (LT / L2)"},{"Gatillo derecho (RT / R2)","Right trigger (RT / R2)"},{"Boton superior izquierdo (LB / L1)","Left shoulder (LB / L1)"},{"Boton superior derecho (RB / R1)","Right shoulder (RB / R1)"},{"Pulsar stick izquierdo (L3)","Left stick press (L3)"},{"Pulsar stick derecho (R3)","Right stick press (R3)"},{"Cruceta - arriba","D-pad - up"},{"Cruceta - abajo","D-pad - down"},{"Cruceta - izquierda","D-pad - left"},{"Cruceta - derecha","D-pad - right"},{"A / Cruz","A / Cross"},{"B / Circulo","B / Circle"},{"X / Cuadrado","X / Square"},{"Y / Triangulo","Y / Triangle"},
 {"Gr\u00e1ficos","Graphics"},{"Controles","Controls"},{"Idiomas","Languages"},{"Logros","Achievements"},{"Resoluci\u00f3n","Resolution"},{"Modo ventana","Windowed"},{"Filtrado de texturas","Texture filtering"},{"Iconos de botones","Button prompts"},{"Activar teclado / rat\u00f3n","Enable keyboard / mouse"},{"Idioma de textos","Game text language"},{"Comentarios","Commentary"},{"GitHub \u00b7 Actualizaciones","GitHub ? Updates"},
  {"API Gr\u00e1fica","Graphics API"},{"Resoluci\u00f3n de pantalla","Screen resolution"},{"Modo de visualizaci\u00f3n","Display mode"},{"Tasa de cuadros (FPS)","Frame rate (FPS)"},{"Suavizado de bordes (Anti-Aliasing)","Anti-aliasing"},
- {"Idioma de textos e interfaz","Game text language"},{"Idioma de comentarios / relator","Commentary language"},{"Mostrar FPS","Show FPS"},{"VSync (Sincronizaci\u00f3n)","VSync (Synchronization)"},
- {"Ventana","Windowed"},{"Pantalla completa","Fullscreen"},{"Sin l\u00edmite de FPS","Unlimited FPS"},{"Desactivado","Disabled"},{"FXAA (Recomendado - Suave)","FXAA (Recommended - Soft)"},{"FXAA Extremo","FXAA Extreme"},{"FSR 1 (Escalado y nitidez)","FSR 1 (Upscaling and sharpening)"},{"Filtro de imagen","Image filter"},
+ {"Idioma de textos e interfaz","Game text language"},{"Idioma de comentarios / relator","Commentary language"},{"Mostrar FPS","Show FPS"},{"VSync","VSync"},
+ {"Ventana","Windowed"},{"Pantalla completa","Fullscreen"},{"Sin l\u00edmite de FPS","Unlimited FPS"},{"Desactivado","Disabled"},{"FXAA (Recomendado - Suave)","FXAA (Recommended - Soft)"},{"FXAA Extremo","FXAA Extreme"},{"FSR (Escalado y nitidez)","FSR (Upscaling and sharpening)"},{"Filtro de imagen","Image filter"},
  {"720p - Nativo","720p - Native"},{"1080p - Nativo","1080p - Native"},{"2K - Nativo","2K - Native"},{"4K - Nativo","4K - Native"},
  {"JUGAR","PLAY"},{"EN JUEGO","RUNNING"},{"FIFA 08 en ejecucion","FIFA 08 is running"},{"F10 durante el partido para volver a Windows","F10 during a match to return to Windows"},
  {"F10 durante el partido para volver a Windows  \u2022  Alt+Enter para alternar pantalla completa","F10 to return to Windows  \u2022  Alt+Enter to toggle fullscreen"},
