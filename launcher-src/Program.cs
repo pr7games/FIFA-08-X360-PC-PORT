@@ -17,6 +17,8 @@ namespace FIFA08Launcher
         [STAThread]
         private static void Main(string[] args)
         {
+            if (args.Length == 2 && args[0] == "--apply-update") { Environment.ExitCode = PortUpdater.RunHelper(args[1]); return; }
+            PortUpdater.Interactive = args.Length == 0;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             if (args.Length == 2 && args[0] == "--startup-plan")

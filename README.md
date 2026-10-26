@@ -1,6 +1,6 @@
 # FIFA-08-RECOMP-PR7
 
-**Version 1.0.0 — desarrollado por PR7.** Port experimental de FIFA 08 de Xbox 360 para Windows x64, basado en ReXGlue/Xenia. Este repositorio contiene el código mantenido por el proyecto y las adaptaciones del SDK; **no contiene el juego ni una descarga jugable**.
+**Version 1.0.1 — desarrollado por PR7.** Port experimental de FIFA 08 de Xbox 360 para Windows x64, basado en ReXGlue/Xenia. Este repositorio contiene el código mantenido por el proyecto y las adaptaciones del SDK; **no contiene el juego ni una descarga jugable**.
 
 Canal: https://www.youtube.com/@GolazoVirtual7
 
@@ -79,7 +79,7 @@ data/      # partidas, logros, caché y registros
 
 `FIFA 08.exe` es la entrada de lanzamiento; el host nativo y sus DLL están dentro de `bin/native/build/`. El instalador conserva internamente otra estructura de payload y la distribuye en estas cuatro carpetas al instalar. No migra ni elimina automáticamente instalaciones antiguas.
 
-## Estado y limitaciones de 1.0.0
+## Estado y limitaciones de 1.0.1
 
 Vulkan funciona mejor en varios equipos probados. Incluye un ajuste visual de intensidad de pliegues; la diferencia en la caída y deformación de la ropa respecto a Xenia sigue en investigación. Se conserva la constante original compartida de animación. D3D12 conserva reportes de oscurecimiento y tintes intermitentes en arena, especialmente en una RTX 3050 móvil. Las últimas correcciones de sincronización están incluidas, pero **su eliminación definitiva no está confirmada**. El rendimiento varía con GPU, CPU, resolución, controladores y pantallas. FSR 1 es espacial: no reconstruye detalle temporal ni equivale al renderizado nativo.
 
@@ -87,7 +87,15 @@ Los logros son locales y no se sincronizan con Xbox Live; las funciones en líne
 
 ## Releases y actualizaciones
 
-`VERSION` identifica esta base como **1.0.0**. La primera versión se identifica con el tag `v1.0.0`. El instalador se distribuye en [Releases](https://github.com/pr7games/FIFA-08-X360-PC-PORT/releases). Repositorio: [pr7games/FIFA-08-X360-PC-PORT](https://github.com/pr7games/FIFA-08-X360-PC-PORT). La interfaz de actualización del launcher permanece deshabilitada; todavía no consulta GitHub ni descarga o instala actualizaciones. No hay credenciales ni endpoints inventados en esta base.
+`VERSION` identifica esta base como **1.0.1**. El instalador completo se distribuye en [Releases](https://github.com/pr7games/FIFA-08-X360-PC-PORT/releases).
+
+El launcher consulta la ultima release estable publica de este repositorio al abrirse. Si hay una version mas reciente, marca la pestana Acerca de. Al pulsar Actualizar version, descarga el instalador completo con porcentaje de progreso, comprueba el SHA-256 publicado por GitHub y extrae sus componentes sin pedir otra ISO/GOD. Un proceso auxiliar espera el cierre del launcher, actualiza sus ejecutables y componentes en `bin/`, y lo abre de nuevo. Si una copia falla, intenta restaurar los archivos anteriores y conserva el respaldo temporal si la recuperacion requiere intervencion. El registro esta en `data/logs/update.log`.
+
+No usa deltas. Conserva `game/`, `mods/`, `data/`, `bin/launcher-settings.json` y `bin/launcher-controls.json`. Se requiere cerrar el juego y el editor antes de actualizar. La instalacion debe tener la estructura limpia documentada arriba y acceso a Internet. La comprobacion no necesita una cuenta de GitHub; esta sujeta a sus limites de consultas publicas. No contiene credenciales.
+
+Para publicar futuras actualizaciones: incrementar `VERSION` y `PortUpdater.CurrentVersion` en `launcher-src/Updater.cs`, compilar el launcher de produccion (sin `UPDATE_TEST_BUILD`), crear el instalador completo y adjuntarlo a una release estable `vX.Y.Z` con nombre **`FIFA08-PR7-Setup-X.Y.Z.exe`**. GitHub debe proporcionar el digest SHA-256 del asset. No reemplazar silenciosamente versiones ya publicadas. El define `UPDATE_TEST_BUILD` compila una version local 0.0.5 para probar la deteccion; nunca debe entrar en un paquete de produccion.
+
+Pruebas del actualizador: `powershell -File tests/test-updater.ps1` (versiones, JSON, URL, integridad, rollback y preservacion de datos). Agregar `-Installer "ruta/al/instalador.exe"` para probar el paquete real o `-CheckGitHub` para descargar, verificar y probar la ultima release en una instalacion temporal aislada.
 
 Los futuros cambios se mantendrán principalmente en `native`, `sdk-overlay`, las interfaces y los scripts. Tras editar un archivo del overlay, actualizar su SHA-256 en `sdk-overlay/manifest.json`; `upstream_sha256` sigue identificando la base v0.10.0. Antes de subir, revisar `git status` y no forzar la inclusión de entradas ignoradas.
 

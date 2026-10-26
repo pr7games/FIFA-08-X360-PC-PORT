@@ -57,34 +57,36 @@ namespace FIFA08Launcher {
   bool updateAvailable;string availableVersion;Label aboutDetails,updateNotice;Button updateVersion,githubProject,youtubeChannel;FlowLayoutPanel aboutStack;
   void InitializeAbout(){
    aboutStack=Stack(modernPages[4]);
-   aboutDetails=new Label{Height=280,ForeColor=Color.Silver,Font=new Font("Segoe UI",9),Margin=new Padding(0,8,0,8)};aboutStack.Controls.Add(aboutDetails);
+   aboutDetails=new Label{Height=220,ForeColor=Color.Silver,Font=new Font("Segoe UI",9),Margin=new Padding(0,8,0,8)};aboutStack.Controls.Add(aboutDetails);
    githubProject=new ChoiceTile{Height=30,Enabled=false};aboutStack.Controls.Add(githubProject);
    youtubeChannel=new ChoiceTile{Height=30};youtubeChannel.Click+=(s,e)=>System.Diagnostics.Process.Start("https://www.youtube.com/@GolazoVirtual7");aboutStack.Controls.Add(youtubeChannel);
    var licenses=new ChoiceTile{Text="Licencias / Licenses",Height=30};licenses.Click+=(s,e)=>{string path=Path.Combine(rootDir,"FIFA09-NOTICE.txt");if(File.Exists(path))System.Diagnostics.Process.Start(path);};aboutStack.Controls.Add(licenses);
    updateNotice=new Label{Height=38,ForeColor=Color.Gray,Font=new Font("Segoe UI",8.5f),Margin=new Padding(0,12,0,3)};aboutStack.Controls.Add(updateNotice);
    var row=new Panel{Height=34};updateVersion=new ChoiceTile{Enabled=false,Size=new Size(150,30),Font=new Font("Segoe UI",9)};row.Controls.Add(updateVersion);aboutStack.Controls.Add(row);
-   aboutStack.Resize+=(s,e)=>SizeStack(aboutStack);RefreshAbout();
+   InitializeUpdater();aboutStack.Resize+=(s,e)=>SizeStack(aboutStack);RefreshAbout();
   }
   void SetUpdateAvailable(string version){availableVersion=version;updateAvailable=!string.IsNullOrEmpty(version);RefreshAbout();}
   void RefreshAbout(){if(aboutDetails==null)return;tabButtons[4].Text=T2("Acerca de","About");aboutDetails.Text=T2(
    @"FIFA 08 PC Port
-Version 1.0.0
+Version {VERSION}
 Desarrollado por PR7
 
 Proyecto independiente, sin afiliacion con EA, FIFA, Microsoft, Sony ni AMD. Requiere una copia original compatible de Xbox 360; el instalador no incluye el juego.
 
-Utiliza componentes de codigo abierto: ReXGlue, Xenia y FidelityFX FSR 1, entre otros. Cada componente conserva su licencia y sus avisos. El repositorio del proyecto esta pendiente de publicacion.
+Utiliza componentes de codigo abierto: ReXGlue, Xenia y FidelityFX FSR 1, entre otros. Cada componente conserva su licencia y sus avisos. El codigo fuente esta publicado en GitHub.
 
 FIFA, EA SPORTS, las marcas, imagenes, musica y recursos del juego pertenecen a sus titulares. El software se ofrece sin garantias; consulta los avisos y licencias incluidos.",
    @"FIFA 08 PC Port
-Version 1.0.0
+Version {VERSION}
 Developed by PR7
 
 Independent project, not affiliated with EA, FIFA, Microsoft, Sony or AMD. Requires a compatible original Xbox 360 copy; game files are not included in the installer.
 
-Uses open-source components including ReXGlue, Xenia and FidelityFX FSR 1. Each component retains its own license and notices. Publication of the project repository is pending.
+Uses open-source components including ReXGlue, Xenia and FidelityFX FSR 1. Each component retains its own license and notices. Source code is published on GitHub.
 
-FIFA, EA SPORTS, trademarks, artwork, music and game assets belong to their respective owners. Software is provided without warranties; see the included notices and licenses.");
-   githubProject.Text=T2("GitHub del proyecto - pendiente","Project GitHub - pending");youtubeChannel.Text="YouTube - GolazoVirtual7";updateNotice.Text=T2("Actualizaciones sin configurar. No hay una nueva version anunciada.","Updates are not configured. No new version has been announced.");updateVersion.Text=T2("Actualizar version","Update version");if(updateAvailable){tabButtons[4].Text=T2("Acerca de *","About *");updateNotice.ForeColor=Color.FromArgb(104,217,154);updateNotice.Text=T2("Hay una nueva version disponible: ","A new version is available: ")+availableVersion;}
+FIFA, EA SPORTS, trademarks, artwork, music and game assets belong to their respective owners. Software is provided without warranties; see the included notices and licenses.").Replace("{VERSION}",PortUpdater.CurrentVersion);
+   youtubeChannel.Text="YouTube - GolazoVirtual7";
+   if(updateAvailable)tabButtons[4].Text=T2("Acerca de *","About *");
+   RefreshUpdater();
   } }
 }
